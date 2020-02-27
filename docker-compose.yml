@@ -1,0 +1,18 @@
+version: '2'
+services:
+  application:
+    container_name: application
+    build:
+      context: .
+      dockerfile: Dockerfile-application
+    ports:
+      - "8080:8080"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+    links:
+      - mysql
+  mysql:
+    container_name: mysql
+    image: mysql:latest
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
