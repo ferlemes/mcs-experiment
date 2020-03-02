@@ -2,6 +2,7 @@ version: '2'
 services:
   application:
     container_name: application
+    image: application
     build:
       context: .
       dockerfile: Dockerfile-application
@@ -16,3 +17,14 @@ services:
     image: mysql:latest
     environment:
       - MYSQL_ROOT_PASSWORD=root
+  jmeter:
+    container_name: jmeter
+    image: jmeter
+    build:
+      context: .
+      dockerfile: Dockerfile-jmeter
+    links:
+      - application
+    volumes:
+      - ./jmeter_results:/results
+
