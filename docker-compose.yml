@@ -16,20 +16,6 @@
 
 version: '2'
 services:
-  application:
-    container_name: application
-    image: application
-    build:
-      context: .
-      dockerfile: Dockerfile-application
-    ports:
-      - "8080:8080"
-    environment:
-      - MYSQL_DATABASE=sample-application
-      - MYSQL_USER=user
-      - MYSQL_PASSWORD=abc123
-    links:
-      - mysql
   mysql:
     container_name: mysql
     image: mysql:latest
@@ -38,6 +24,28 @@ services:
       - MYSQL_DATABASE=sample-application
       - MYSQL_USER=user
       - MYSQL_PASSWORD=abc123
+  application:
+    container_name: application
+    image: application
+    build:
+      context: .
+      dockerfile: Dockerfile-application
+    environment:
+      - MYSQL_DATABASE=sample-application
+      - MYSQL_USER=user
+      - MYSQL_PASSWORD=abc123
+    links:
+      - mysql
+  haproxy:
+    container_name: haproxy
+    image: haproxy
+    build:
+      context: .
+      dockerfile: Dockerfile-haproxy
+    ports:
+      - "8080:8080"
+    links:
+      - application
 #  jmeter:
 #    container_name: jmeter
 #    image: jmeter

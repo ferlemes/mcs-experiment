@@ -14,9 +14,6 @@
 # limitations under the License.
 #
 
-FROM openjdk:8
+FROM haproxy:2.1
 
-MAINTAINER Fernando Lemes da Silva <lemes@ime.usp.br>
-
-ADD application/target/sample-application.jar /
-CMD java -jar /sample-application.jar
+COPY ./haproxy/haproxy.cfg /usr/local/etc/haproxy/haproxy.cfg
