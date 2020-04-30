@@ -24,8 +24,32 @@ services:
       - MYSQL_DATABASE=sample-application
       - MYSQL_USER=user
       - MYSQL_PASSWORD=abc123
-  application:
-    container_name: application
+  application-1:
+    container_name: application-1
+    image: application
+    build:
+      context: .
+      dockerfile: Dockerfile-application
+    environment:
+      - MYSQL_DATABASE=sample-application
+      - MYSQL_USER=user
+      - MYSQL_PASSWORD=abc123
+    links:
+      - mysql
+  application-2:
+    container_name: application-2
+    image: application
+    build:
+      context: .
+      dockerfile: Dockerfile-application
+    environment:
+      - MYSQL_DATABASE=sample-application
+      - MYSQL_USER=user
+      - MYSQL_PASSWORD=abc123
+    links:
+      - mysql
+  application-3:
+    container_name: application-3
     image: application
     build:
       context: .
@@ -45,15 +69,16 @@ services:
     ports:
       - "8080:8080"
     links:
-      - application
-#  jmeter:
-#    container_name: jmeter
-#    image: jmeter
-#    build:
-#      context: .
-#      dockerfile: Dockerfile-jmeter
-#    links:
-#      - application
-#    volumes:
-#      - ./jmeter_results:/results
-
+      - application-1
+      - application-2
+      - application-3
+  jmeter:
+    container_name: jmeter
+    image: jmeter
+    build:
+      context: .
+      dockerfile: Dockerfile-jmeter
+    links:
+      - haproxy
+    volumes:
+      - ./jmeter_results:/results
