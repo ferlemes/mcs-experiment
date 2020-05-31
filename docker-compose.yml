@@ -29,31 +29,39 @@ services:
     image: application
     build:
       context: .
-      dockerfile: Dockerfile-application
+      dockerfile: application/Dockerfile
     environment:
       - MYSQL_DATABASE=sample-application
       - MYSQL_USER=user
       - MYSQL_PASSWORD=abc123
     links:
       - mysql
+  rsyslog:
+    container_name: rsyslog
+    image: rsyslog
+    build:
+      context: .
+      dockerfile: rsyslog/Dockerfile
+    volumes:
+      - ./haproxy_logs:/logs
   haproxy:
     container_name: haproxy
     image: haproxy
     build:
       context: .
-      dockerfile: Dockerfile-haproxy
+      dockerfile: haproxy/Dockerfile
     ports:
       - "8080:8080"
     links:
       - application
-#  jmeter:
-#    container_name: jmeter
-#    image: jmeter
-#    build:
-#      context: .
-#      dockerfile: Dockerfile-jmeter
-#    links:
-#      - application
-#    volumes:
-#      - ./jmeter_results:/results
-
+      - rsyslog
+  jmeter:
+    container_name: jmeter
+    image: jmeter
+    build:
+      context: .
+      dockerfile: jmeter/Dockerfile
+    links:
+      - haproxy
+    volumes:
+      - ./jmeter_results:/results
