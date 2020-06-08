@@ -55,6 +55,24 @@ services:
     links:
       - application
       - rsyslog
+  mongodb:
+    container_name: mongodb
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+  log-reader:
+    container_name: log-reader
+    image: log-reader
+    build:
+      context: .
+      dockerfile: log-reader/Dockerfile
+    environment:
+      - SOURCE_PATH=/logs/
+      - MONGO_URL=mongodb://mongodb:27017/
+    volumes:
+      - ./haproxy_logs:/logs
+    links:
+      - mongodb
   jmeter:
     container_name: jmeter
     image: jmeter
