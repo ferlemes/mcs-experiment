@@ -73,6 +73,16 @@ services:
       - ./haproxy_logs:/logs
     links:
       - mongodb
+  log-processor:
+    container_name: log-processor
+    image: log-processor
+    build:
+      context: .
+      dockerfile: log-processor/Dockerfile
+    environment:
+      - MONGO_URL=mongodb://mongodb:27017/
+    links:
+      - mongodb
   jmeter:
     container_name: jmeter
     image: jmeter
