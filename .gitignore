@@ -4,4 +4,6 @@ target/
 */target/
 */*/target
 */*/*/target
+*/__pycache__
+*/venv
 jmeter_results
