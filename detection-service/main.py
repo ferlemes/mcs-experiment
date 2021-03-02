@@ -75,6 +75,10 @@ def post_sample(model_name):
     else:
         return jsonify({"error": "Model not found."}), 404
 
+@app.route("/evaluate", methods=['POST'])
+def post_sample_simple():
+    return jsonify("Hmm.. seems ok."), 200
+
 #
 # Run webserver
 #

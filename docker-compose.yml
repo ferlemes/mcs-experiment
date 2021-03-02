@@ -36,14 +36,20 @@ services:
       - MYSQL_PASSWORD=abc123
     links:
       - mysql
-  rsyslog:
-    container_name: rsyslog
-    image: rsyslog
+#  rsyslog:
+#    container_name: rsyslog
+#    image: rsyslog
+#    build:
+#      context: .
+#      dockerfile: rsyslog/Dockerfile
+#    volumes:
+#      - ./haproxy_logs:/logs
+  pysyslog:
+    container_name: pysyslog
+    image: pysyslog
     build:
       context: .
-      dockerfile: rsyslog/Dockerfile
-    volumes:
-      - ./haproxy_logs:/logs
+      dockerfile: pysyslog/Dockerfile
   haproxy:
     container_name: haproxy
     image: haproxy
@@ -54,7 +60,16 @@ services:
       - "8080:8080"
     links:
       - application
-      - rsyslog
+      - pysyslog
+      - detection-service
+  detection-service:
+    container_name: detection-service
+    image: detection-service
+    build:
+      context: .
+      dockerfile: detection-service/Dockerfile
+    ports:
+      - "80:80"
   mongodb:
     container_name: mongodb
     image: mongo:latest
