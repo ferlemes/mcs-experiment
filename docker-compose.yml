@@ -47,9 +47,13 @@ services:
   pysyslog:
     container_name: pysyslog
     image: pysyslog
+    environment:
+      - DETECTOR_HOST=detection-service
     build:
       context: .
       dockerfile: pysyslog/Dockerfile
+    links:
+      - detection-service
   haproxy:
     container_name: haproxy
     image: haproxy
@@ -61,7 +65,6 @@ services:
     links:
       - application
       - pysyslog
-      - detection-service
   detection-service:
     container_name: detection-service
     image: detection-service
@@ -75,29 +78,29 @@ services:
     image: mongo:latest
     ports:
       - "27017:27017"
-  log-reader:
-    container_name: log-reader
-    image: log-reader
-    build:
-      context: .
-      dockerfile: log-reader/Dockerfile
-    environment:
-      - SOURCE_PATH=/logs/
-      - MONGO_URL=mongodb://mongodb:27017/
-    volumes:
-      - ./haproxy_logs:/logs
-    links:
-      - mongodb
-  log-processor:
-    container_name: log-processor
-    image: log-processor
-    build:
-      context: .
-      dockerfile: log-processor/Dockerfile
-    environment:
-      - MONGO_URL=mongodb://mongodb:27017/
-    links:
-      - mongodb
+#  log-reader:
+#    container_name: log-reader
+#    image: log-reader
+#    build:
+#      context: .
+#      dockerfile: log-reader/Dockerfile
+#    environment:
+#      - SOURCE_PATH=/logs/
+#      - MONGO_URL=mongodb://mongodb:27017/
+#    volumes:
+#      - ./haproxy_logs:/logs
+#    links:
+#      - mongodb
+#  log-processor:
+#    container_name: log-processor
+#    image: log-processor
+#    build:
+#      context: .
+#      dockerfile: log-processor/Dockerfile
+#    environment:
+#      - MONGO_URL=mongodb://mongodb:27017/
+#    links:
+#      - mongodb
   jmeter:
     container_name: jmeter
     image: jmeter

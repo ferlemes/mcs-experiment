@@ -1,21 +1,47 @@
 #!/usr/bin/env python
 
-## Tiny Syslog Server in Python.
-##
-## This is a tiny syslog server that is able to receive UDP based syslog
-## entries on a specified port and save them to a file.
-## That's it... it does nothing else...
-## There are a few configuration parameters.
+#
+# Copyright 2020, Fernando Lemes da Silva
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 
 HOST, PORT = "0.0.0.0", 514
-ANOMALY_DETECTOR = "detection-service"
 
+import os
+import sys
+import logging
 import json
 import re
 import socketserver
 import requests
 
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+handler = logging.StreamHandler(sys.stdout)
+handler.setLevel(logging.DEBUG)
+handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+logger.addHandler(handler)
+
 haproxy_log_format = re.compile(r"^.* ([^ ]+) ([^ ]+)/([^ ]+) ([0-9]+)/([0-9]+)/([0-9]+)/([0-9]+)/([0-9]+) ([0-9]+) ([0-9]+) [^ ]+ [^ ]+ [^ ]+ ([0-9]+)/([0-9]+)/([0-9]+)/([0-9]+)/([0-9]+) ([0-9]+)/([0-9]+) \"([A-Z]+) ([^ ]+) ([^ ]+)\".*$")
+
+
+if 'DETECTOR_HOST' in os.environ:
+	detector_host = os.environ['DETECTOR_HOST']
+	logger.info("Sending data to: " + detector_host)
+else:
+	logger.fatal("Missing DETECTOR_HOST environment variable.")
+	sys.exit()
 
 class SyslogUDPHandler(socketserver.BaseRequestHandler):
 
@@ -48,10 +74,11 @@ class SyslogUDPHandler(socketserver.BaseRequestHandler):
 				"http_protocol":							data[19]
 			}
 			try:
-				response = requests.post('https://" + ANOMALY_DETECTOR + "/evaluate', data = log_entry)
-				print("Got status code : " + str(response.status_code))
+				response = requests.post('http://' + detector_host + '/evaluate', data = log_entry)
 			except:
-				print("Could not send data to " + ANOMALY_DETECTOR)
+				logger.debug("Error: Could not send data to " + detector_host)
+		else:
+			logger.warning("Ignoring data: " + str(data))
 
 if __name__ == "__main__":
 	try:
@@ -60,4 +87,4 @@ if __name__ == "__main__":
 	except (IOError, SystemExit):
 		raise
 	except KeyboardInterrupt:
-		print ("Crtl+C Pressed. Shutting down.")
+		logger.info("Shutting down.")

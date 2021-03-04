@@ -28,31 +28,31 @@ model_manager = ModelManager()
 
 @app.route("/model/<string:model_name>", methods=['GET'])
 def get_model(model_name):
-    model = model_manager.get_model(model_name)
-    if model:
-        return jsonify(model.get_parameters()), 200
-    else:
-        return jsonify({"error": "Model not found."}), 404
+	model = model_manager.get_model(model_name)
+	if model:
+		return jsonify(model.get_parameters()), 200
+	else:
+		return jsonify({"error": "Model not found."}), 404
 
 
 @app.route("/model/<string:model_name>", methods=['POST'])
 def post_model(model_name):
-    model = model_manager.get_model(model_name)
-    if model:
-        return jsonify({"error": "Model already exists."}), 409
-    else:
-        model = model_manager.create_model(model_name, request.get_json())
-        return jsonify(model.get_parameters()), 200
+	model = model_manager.get_model(model_name)
+	if model:
+		return jsonify({"error": "Model already exists."}), 409
+	else:
+		model = model_manager.create_model(model_name, request.get_json())
+		return jsonify(model.get_parameters()), 200
 
 
 @app.route("/model/<string:model_name>", methods=['DELETE'])
 def delete_model(model_name):
-    model = model_manager.get_model(model_name)
-    if model:
-        model_manager.delete_model(model_name)
-        return '', 204
-    else:
-        return jsonify({"error": "Model not found."}), 404
+	model = model_manager.get_model(model_name)
+	if model:
+		model_manager.delete_model(model_name)
+		return '', 204
+	else:
+		return jsonify({"error": "Model not found."}), 404
 
 
 #
@@ -62,22 +62,22 @@ def delete_model(model_name):
 
 @app.route("/evaluate/<string:model_name>", methods=['POST'])
 def post_sample(model_name):
-    model = model_manager.get_model(model_name)
-    if model:
-        try:
-            evaluation = model.evaluate(request.get_json())
-        except InvalidPayloadException as error:
-            return jsonify({"error": str(error)}), 400
-        if evaluation:
-            return jsonify(evaluation), 200
-        else:
-            return jsonify({}), 204
-    else:
-        return jsonify({"error": "Model not found."}), 404
+	model = model_manager.get_model(model_name)
+	if model:
+		try:
+			evaluation = model.evaluate(request.get_json())
+		except InvalidPayloadException as error:
+			return jsonify({"error": str(error)}), 400
+		if evaluation:
+			return jsonify(evaluation), 200
+		else:
+			return jsonify({}), 204
+	else:
+		return jsonify({"error": "Model not found."}), 404
 
 @app.route("/evaluate", methods=['POST'])
 def post_sample_simple():
-    return jsonify("Hmm.. seems ok."), 200
+	return jsonify("Hmm.. seems ok."), 200
 
 #
 # Run webserver
@@ -85,4 +85,4 @@ def post_sample_simple():
 
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', debug=True)
+	app.run(host='0.0.0.0', port=80, debug=True)

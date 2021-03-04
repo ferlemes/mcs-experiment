@@ -18,6 +18,6 @@ FROM python:3
 
 RUN pip install --no-cache-dir Flask numpy
 
-#COPY ./log-processor/process_logs.py /process_logs.py
+COPY ./detection-service/*.py /
 
-#CMD [ "python", "/process_logs.py" ]
+CMD [ "python", "/main.py" ]
