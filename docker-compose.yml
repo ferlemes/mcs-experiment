@@ -48,12 +48,12 @@ services:
     container_name: pysyslog
     image: pysyslog
     environment:
-      - DETECTOR_HOST=detection-service
+      - DETECTOR_URL=http://data-to-mongo/evaluate
     build:
       context: .
       dockerfile: pysyslog/Dockerfile
     links:
-      - detection-service
+      - data-to-mongo
   haproxy:
     container_name: haproxy
     image: haproxy
@@ -65,14 +65,25 @@ services:
     links:
       - application
       - pysyslog
-  detection-service:
-    container_name: detection-service
-    image: detection-service
+#  detection-service:
+#    container_name: detection-service
+#    image: detection-service
+#    build:
+#      context: .
+#      dockerfile: detection-service/Dockerfile
+#    ports:
+#      - "80:80"
+  data-to-mongo:
+    container_name: data-to-mongo
+    image: data-to-mongo
     build:
       context: .
-      dockerfile: detection-service/Dockerfile
-    ports:
-      - "80:80"
+      dockerfile: data-to-mongo/Dockerfile
+    environment:
+      - MONGO_URL=mongodb://mongodb:27017/
+      - MONGO_DATABASE=haproxy
+    links:
+      - mongodb
   mongodb:
     container_name: mongodb
     image: mongo:latest

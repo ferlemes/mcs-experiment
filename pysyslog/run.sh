@@ -36,11 +36,11 @@ logger.addHandler(handler)
 haproxy_log_format = re.compile(r"^.* ([^ ]+) ([^ ]+)/([^ ]+) ([0-9]+)/([0-9]+)/([0-9]+)/([0-9]+)/([0-9]+) ([0-9]+) ([0-9]+) [^ ]+ [^ ]+ [^ ]+ ([0-9]+)/([0-9]+)/([0-9]+)/([0-9]+)/([0-9]+) ([0-9]+)/([0-9]+) \"([A-Z]+) ([^ ]+) ([^ ]+)\".*$")
 
 
-if 'DETECTOR_HOST' in os.environ:
-	detector_host = os.environ['DETECTOR_HOST']
-	logger.info("Sending data to: " + detector_host)
+if 'DETECTOR_URL' in os.environ:
+	detector_url = os.environ['DETECTOR_URL']
+	logger.info("Sending data to: " + detector_url)
 else:
-	logger.fatal("Missing DETECTOR_HOST environment variable.")
+	logger.fatal("Missing DETECTOR_URL environment variable.")
 	sys.exit()
 
 class SyslogUDPHandler(socketserver.BaseRequestHandler):
@@ -74,11 +74,11 @@ class SyslogUDPHandler(socketserver.BaseRequestHandler):
 				"http_protocol":							data[19]
 			}
 			try:
-				response = requests.post('http://' + detector_host + '/evaluate', data = log_entry)
+				response = requests.post(detector_url, data = json.dumps(log_entry), headers={'Content-Type': 'application/json'})
 			except:
-				logger.debug("Error: Could not send data to " + detector_host)
+				logger.debug("Error: Could not send data to %s", detector_url)
 		else:
-			logger.warning("Ignoring data: " + str(data))
+			logger.warning("Ignoring data: %s", str(data))
 
 if __name__ == "__main__":
 	try:
