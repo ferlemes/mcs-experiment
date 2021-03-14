@@ -95,12 +95,11 @@ services:
     image: mongo:latest
     ports:
       - "27017:27017"
-
-#  detection-service:
-#    container_name: detection-service
-#    image: detection-service
-#    build:
-#      context: .
-#      dockerfile: detection-service/Dockerfile
-#    ports:
-#      - "80:80"
+  evaluator:
+    container_name: evaluator
+    image: evaluator
+    build:
+      context: evaluator
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"

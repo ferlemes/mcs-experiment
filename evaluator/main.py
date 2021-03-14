@@ -14,21 +14,29 @@
 # limitations under the License.
 #
 
-from model import Model
+from flask import Flask, jsonify, request
+from evaluator import Evaluator
 
+app = Flask(__name__)
+evaluator = Evaluator()
 
-class ModelManager:
+#
+# Evaluation API
+#
+@app.route("/evaluate", methods=['POST'])
+def post_sample():
+	data = request.get_json()
+	if data:
+		result, status = evaluator.evaluate(data)
+		if 200 <= status and status < 300:
+			return jsonify({"result": result}), status
+		else:
+			return jsonify({"error": result}), status
+	else:
+		return jsonify({"error": "Payload not found."}), 400
 
-    def __init__(self):
-        self.model_library = {}
-
-    def create_model(self, model_name, model_specs):
-        new_model = Model(model_specs)
-        self.model_library[model_name] = new_model
-        return new_model
-
-    def get_model(self, model_name):
-        return self.model_library.get(model_name)
-
-    def delete_model(self, model_name):
-        del self.model_library[model_name]
+#
+# Run webserver
+#
+if __name__ == "__main__":
+	app.run(host='0.0.0.0', port=80, debug=True)
