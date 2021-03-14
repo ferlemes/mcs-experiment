@@ -14,14 +14,9 @@
 # limitations under the License.
 #
 
-FROM alpine:latest
+FROM python:rc-buster
 
-RUN apk update      && \
-    apk upgrade     && \
-    apk add rsyslog && \
-    rm -rf /var/cache/apk/*
-
-COPY ./rsyslog/haproxy.conf /etc/rsyslog.d/
-COPY ./rsyslog/run.sh /run.sh
+COPY run.sh /run.sh
+RUN chmod +x /run.sh && pip install requests
 
 ENTRYPOINT ["/run.sh"]

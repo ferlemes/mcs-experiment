@@ -40,8 +40,8 @@ RUN apk update && \
 
 ENV PATH $PATH:$JMETER_BIN
 
-COPY jmeter/run.sh /run.sh
-COPY jmeter/test_1.jmx /tests/test_1.jmx
+COPY run.sh /run.sh
+COPY test_1.jmx /tests/test_1.jmx
 
 VOLUME /results
 

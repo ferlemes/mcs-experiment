@@ -18,5 +18,5 @@ FROM openjdk:8
 
 MAINTAINER Fernando Lemes da Silva <lemes@ime.usp.br>
 
-ADD application/target/sample-application.jar /
+ADD target/sample-application.jar /
 CMD java -jar /sample-application.jar

@@ -14,10 +14,10 @@
 # limitations under the License.
 #
 
-# Collect log with UDP
-module(load="imudp")
-input(type="imudp" address="0.0.0.0" port="514")
+FROM python:3
 
-# Creating separate log files based on the severity
-local0.* /var/log/haproxy-traffic.log
-local0.notice /var/log/haproxy-admin.log
+RUN pip install --no-cache-dir Flask pymongo
+
+COPY ./main.py /main.py
+
+CMD [ "python", "/main.py" ]

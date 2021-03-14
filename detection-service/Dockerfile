@@ -18,6 +18,6 @@ FROM python:3
 
 RUN pip install --no-cache-dir Flask numpy
 
-COPY ./detection-service/*.py /
+COPY ./*.py /
 
 CMD [ "python", "/main.py" ]

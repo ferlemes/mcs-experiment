@@ -16,6 +16,9 @@
 
 version: '2'
 services:
+  #
+  # Application
+  #
   mysql:
     container_name: mysql
     image: mysql:latest
@@ -28,57 +31,60 @@ services:
     container_name: application
     image: application
     build:
-      context: .
-      dockerfile: application/Dockerfile
+      context: application
+      dockerfile: Dockerfile
     environment:
       - MYSQL_DATABASE=sample-application
       - MYSQL_USER=user
       - MYSQL_PASSWORD=abc123
     links:
       - mysql
-#  rsyslog:
-#    container_name: rsyslog
-#    image: rsyslog
-#    build:
-#      context: .
-#      dockerfile: rsyslog/Dockerfile
-#    volumes:
-#      - ./haproxy_logs:/logs
-  pysyslog:
-    container_name: pysyslog
-    image: pysyslog
-    environment:
-      - DETECTOR_URL=http://data-to-mongo/evaluate
-    build:
-      context: .
-      dockerfile: pysyslog/Dockerfile
-    links:
-      - data-to-mongo
+  #
+  # Interceptor
+  #
   haproxy:
     container_name: haproxy
     image: haproxy
     build:
-      context: .
-      dockerfile: haproxy/Dockerfile
+      context: haproxy
+      dockerfile: Dockerfile
     ports:
       - "8080:8080"
     links:
       - application
-      - pysyslog
-#  detection-service:
-#    container_name: detection-service
-#    image: detection-service
-#    build:
-#      context: .
-#      dockerfile: detection-service/Dockerfile
-#    ports:
-#      - "80:80"
-  data-to-mongo:
-    container_name: data-to-mongo
-    image: data-to-mongo
+      - syslog
+  #
+  # Load Generator
+  #
+  jmeter:
+    container_name: jmeter
+    image: jmeter
     build:
-      context: .
-      dockerfile: data-to-mongo/Dockerfile
+      context: jmeter
+      dockerfile: Dockerfile
+    links:
+      - haproxy
+#    volumes:
+#      - ./jmeter_results:/results
+  #
+  # Kube Owl
+  #
+  syslog:
+    container_name: syslog
+    image: syslog
+    environment:
+      - DETECTOR_URL=http://request-recorder/evaluate
+    build:
+      context: syslog
+      dockerfile: Dockerfile
+    links:
+      - request-recorder
+  request-recorder:
+    container_name: request-recorder
+    image: request-recorder
+    build:
+      context: request-recorder
+      dockerfile: Dockerfile
     environment:
       - MONGO_URL=mongodb://mongodb:27017/
       - MONGO_DATABASE=haproxy
@@ -89,36 +95,12 @@ services:
     image: mongo:latest
     ports:
       - "27017:27017"
-#  log-reader:
-#    container_name: log-reader
-#    image: log-reader
+
+#  detection-service:
+#    container_name: detection-service
+#    image: detection-service
 #    build:
 #      context: .
-#      dockerfile: log-reader/Dockerfile
-#    environment:
-#      - SOURCE_PATH=/logs/
-#      - MONGO_URL=mongodb://mongodb:27017/
-#    volumes:
-#      - ./haproxy_logs:/logs
-#    links:
-#      - mongodb
-#  log-processor:
-#    container_name: log-processor
-#    image: log-processor
-#    build:
-#      context: .
-#      dockerfile: log-processor/Dockerfile
-#    environment:
-#      - MONGO_URL=mongodb://mongodb:27017/
-#    links:
-#      - mongodb
-  jmeter:
-    container_name: jmeter
-    image: jmeter
-    build:
-      context: .
-      dockerfile: jmeter/Dockerfile
-    links:
-      - haproxy
-    volumes:
-      - ./jmeter_results:/results
+#      dockerfile: detection-service/Dockerfile
+#    ports:
+#      - "80:80"

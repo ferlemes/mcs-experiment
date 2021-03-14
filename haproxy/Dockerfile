@@ -16,4 +16,4 @@
 
 FROM haproxy:2.1
 
-COPY ./haproxy/haproxy.cfg /usr/local/etc/haproxy/haproxy.cfg
+COPY ./haproxy.cfg /usr/local/etc/haproxy/haproxy.cfg
