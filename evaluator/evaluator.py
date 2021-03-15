@@ -26,10 +26,13 @@ class Evaluator:
             path = data['http_path'] + '?'
             path_parts = path.split('?')
             resource = path_parts[0]
+            if resource[0] == '/':
+                resource = resource[1:]
             parameters = path_parts[1]
             current_node = self.root
             for resource_part in resource.split('/'):
                 current_node = current_node.get_child(resource_part)
+                current_node.compress()
             current_node.feed(data)
             result = current_node.evaluate(data)
             if result:
