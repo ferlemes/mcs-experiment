@@ -15,23 +15,28 @@
 #
 
 from flask import Flask, jsonify, request
-from evaluator import Evaluator
+from evaluator_manager import EvaluatorManager
 
 app = Flask(__name__)
-evaluator = Evaluator()
+evaluator_manager = EvaluatorManager()
 
 #
 # Evaluation API
 #
 @app.route("/evaluate", methods=['POST'])
-def post_sample():
+def evaluate():
 	data = request.get_json()
 	if data:
-		result, status = evaluator.evaluate(data)
-		if 200 <= status and status < 300:
-			return jsonify({"result": result}), status
+		if 'http_path' in data:
+			evaluator = evaluator_manager.get_evaluator_for(data.get('http_path'))
+			evaluator.feed(data)
+			result, probability = evaluator.evaluate(data)
+			if result:
+				return jsonify({"result": result, "probability": probability}), 200
+			else:
+				return jsonify({"result": "unknown", "probability": 0}), 200
 		else:
-			return jsonify({"error": result}), status
+			return jsonify({"error": "Missing 'http_path' property at payload."}), 400
 	else:
 		return jsonify({"error": "Payload not found."}), 400
 

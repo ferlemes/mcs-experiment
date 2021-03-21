@@ -14,30 +14,22 @@
 # limitations under the License.
 #
 
-from path_node import PathNode
 
 class Evaluator:
 
     def __init__(self):
-        self.root = PathNode()
+        self.requests_data = []
+
+    def feed(self, data):
+        self.requests_data.append(data)
 
     def evaluate(self, data):
-        if 'http_path' in data:
-            path = data['http_path'] + '?'
-            path_parts = path.split('?')
-            resource = path_parts[0]
-            if resource[0] == '/':
-                resource = resource[1:]
-            parameters = path_parts[1]
-            current_node = self.root
-            for resource_part in resource.split('/'):
-                current_node = current_node.get_child(resource_part)
-                current_node.compress()
-            current_node.feed(data)
-            result = current_node.evaluate(data)
-            if result:
-                return result, 200
-            else:
-                return "Unable to evaluate.", 202
+        print("evaluating data")
+        if len(self.requests_data) > 5:
+            return "I didn't check the data, but it seems ok.", 1
         else:
-            return "Missing 'http_path' at payload.", 400
+            return None, 0
+
+    def merge(self, another):
+        self.requests_data.append(another.requests_data)
+        another.requests_data = []
