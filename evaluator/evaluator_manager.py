@@ -20,8 +20,9 @@ from evaluator import Evaluator
 
 class EvaluatorManager:
 
-    def __init__(self):
+    def __init__(self, childs_to_compress = 1000):
         self.root = PathNode('root')
+        EvaluatorManager.childs_to_compress = childs_to_compress
 
     def get_evaluator_for(self, http_path):
         path = http_path + '?'
@@ -33,7 +34,6 @@ class EvaluatorManager:
         current_node = self.root
         for resource_part in resource.split('/'):
             current_node = current_node.get_child(resource_part)
-            print("Getting child with name: %s", current_node.name)
             current_node.compress()                                # TODO Should compress async based on req count or time interval
         return current_node.evaluator
 
@@ -54,21 +54,29 @@ class PathNode:
         return self.child_nodes_by_string[node_name]
 
     def compress(self):
-        if len(self.child_nodes_by_string) > 10:
-            print("Compressing nodes")
-            group_name = '<number>'
-            group_regexp = re.compile(r"^[0-9]+$")
-            use_group = True
-            for node_name in self.child_nodes_by_string:
-                if not group_regexp.search(node_name):
-                    use_group = False
-                    break
-            if use_group:
-                new_node = PathNode(group_name)
-                self.child_nodes_by_regexp[group_regexp] = new_node
-                for node_name, each_node in self.child_nodes_by_string.items():
-                    new_node.merge(each_node)
-                self.child_nodes_by_string.clear()
+        if len(self.child_nodes_by_string) > EvaluatorManager.childs_to_compress:
+            groups = [
+                { 'name': '<number>',            'regexp': re.compile(r"^[0-9]+$")                                                       },
+                { 'name': '<hexadecimal>',       'regexp': re.compile(r"^[0-9a-f]+$")                                                    },
+                { 'name': '<uuid>',              'regexp': re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$") },
+                { 'name': '<letters>',           'regexp': re.compile(r"^[A-Za-z]+$")                                                    },
+                { 'name': '<lettersAndNumbers>', 'regexp': re.compile(r"^[A-Za-z0-9]+$")                                                 },
+                { 'name': '<anything>',          'regexp': re.compile(r"^.+$")                                                           },
+            ]
+            for group in groups:
+                group_name = group.get('name')
+                group_regexp = group.get('regexp')
+                use_group = True
+                for node_name in self.child_nodes_by_string:
+                    if not group_regexp.search(node_name):
+                        use_group = False
+                        break
+                if use_group:
+                    new_node = PathNode(group_name)
+                    self.child_nodes_by_regexp[group_regexp] = new_node
+                    for node_name, each_node in self.child_nodes_by_string.items():
+                        new_node.merge(each_node)
+                    self.child_nodes_by_string.clear()
 
     def merge(self, another_node):
         self.evaluator.merge(another_node.evaluator)

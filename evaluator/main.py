@@ -18,7 +18,7 @@ from flask import Flask, jsonify, request
 from evaluator_manager import EvaluatorManager
 
 app = Flask(__name__)
-evaluator_manager = EvaluatorManager()
+evaluator_manager = EvaluatorManager(childs_to_compress = 20)
 
 #
 # Evaluation API
