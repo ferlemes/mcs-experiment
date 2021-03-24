@@ -36,12 +36,20 @@ logger.addHandler(handler)
 haproxy_log_format = re.compile(r"^.* \[([^ ]+)\] ([^ ]+) ([^ ]+)/([^ ]+) ([0-9]+)/([0-9]+)/([0-9]+)/([0-9]+)/([0-9]+) ([0-9]+) ([0-9]+) [^ ]+ [^ ]+ [^ ]+ ([0-9]+)/([0-9]+)/([0-9]+)/([0-9]+)/([0-9]+) ([0-9]+)/([0-9]+) \"([A-Z]+) ([^ ]+) ([^ ]+)\".*$")
 
 
-if 'DETECTOR_URL' in os.environ:
-	detector_url = os.environ['DETECTOR_URL']
-	logger.info("Sending data to: " + detector_url)
+if 'DETECTOR_URLS' in os.environ:
+	detector_urls = []
+	for url in os.environ['DETECTOR_URLS'].split(','):
+		detector_urls.append(url.strip())
+	logger.info('Sending data to: %s', str(detector_urls))
 else:
 	logger.fatal("Missing DETECTOR_URL environment variable.")
 	sys.exit()
+
+ignore_paths = []
+if 'IGNORE_PATHS' in os.environ:
+	for path in os.environ['IGNORE_PATHS'].split(','):
+		ignore_paths.append(path.strip())
+	logger.info('Ignoring HTTP paths: %s', str(ignore_paths))
 
 class SyslogUDPHandler(socketserver.BaseRequestHandler):
 
@@ -52,6 +60,8 @@ class SyslogUDPHandler(socketserver.BaseRequestHandler):
 		search = haproxy_log_format.search(str(data))
 		if search:
 			data = search.groups()
+			if data[19] in ignore_paths:
+				return
 			log_entry = {
 				"timestamp":								data[0],
 				"frontend":									data[1],
@@ -75,10 +85,12 @@ class SyslogUDPHandler(socketserver.BaseRequestHandler):
 				"http_path":								data[19],
 				"http_protocol":							data[20]
 			}
-			try:
-				response = requests.post(detector_url, data = json.dumps(log_entry), headers={'Content-Type': 'application/json'})
-			except:
-				logger.debug("Error: Could not send data to %s", detector_url)
+			for url in detector_urls:
+				url = url.strip()
+				try:
+					response = requests.post(url, data = json.dumps(log_entry), headers={'Content-Type': 'application/json'})
+				except:
+					logger.debug("Error: Could not send data to %s", url)
 		else:
 			logger.warning("Ignoring data: %s", str(data))
 

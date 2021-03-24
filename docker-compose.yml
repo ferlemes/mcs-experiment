@@ -73,12 +73,14 @@ services:
     container_name: syslog
     image: syslog
     environment:
-      - DETECTOR_URL=http://request-recorder/evaluate
+      - DETECTOR_URLS=http://request-recorder/evaluate,http://evaluator/evaluate
+      - IGNORE_PATHS= /ping
     build:
       context: syslog
       dockerfile: Dockerfile
     links:
       - request-recorder
+      - evaluator
   request-recorder:
     container_name: request-recorder
     image: request-recorder

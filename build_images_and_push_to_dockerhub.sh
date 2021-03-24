@@ -2,7 +2,7 @@
 
 docker-compose build
 
-VERSION=1.0.1
+VERSION=1.0.3
 
 docker tag syslog:latest kubeowl/syslog:${VERSION}
 docker push kubeowl/syslog:${VERSION}
