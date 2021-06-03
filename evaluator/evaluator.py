@@ -16,7 +16,7 @@
 
 from status_rate_detector import StatusRateDetector
 import exceptions
-
+import threading
 
 class Evaluator:
 
@@ -24,12 +24,14 @@ class Evaluator:
         self.anomaly_detectors = [ StatusRateDetector() ]
         self.requests_data = []
         self.new_data = 0
+        self._lock = threading.Lock()
 
     def feed(self, data):
-        self.requests_data.append(data)
-        if len(self.requests_data) > 10000:
-            self.requests_data.pop(0)
-        self.new_data += 1
+        with self._lock:
+            self.requests_data.append(data)
+            if len(self.requests_data) > 10000:
+                self.requests_data.pop(0)
+            self.new_data += 1
 
     def evaluate(self, data):
 

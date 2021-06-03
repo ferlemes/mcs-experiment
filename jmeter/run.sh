@@ -8,7 +8,7 @@ XMX=$[ $freeMemory * 8 / 10 ]
 XMS=$[ $freeMemory * 8 / 10 ]
 export JVM_ARGS="-Xmn${XMN}m -Xms${XMS}m -Xmx${XMX}m"
 
-sleep 15
+sleep 30
 
 echo "Starting Jmeter test: test_1.jmx"
 jmeter -n -t /tests/test_1.jmx -l /results/test_1.jtl -j /results/test_1.log

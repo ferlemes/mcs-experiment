@@ -15,6 +15,7 @@
 #
 
 import re
+import threading
 from evaluator import Evaluator
 
 
@@ -44,6 +45,7 @@ class PathNode:
         self.child_nodes_by_regexp = {}
         self.child_nodes_by_string = {}
         self.evaluator = Evaluator()
+        self._lock = threading.Lock()
 
     def get_child(self, node_name):
         for regexp, node in self.child_nodes_by_regexp.items():
@@ -54,29 +56,30 @@ class PathNode:
         return self.child_nodes_by_string[node_name]
 
     def compress(self):
-        if len(self.child_nodes_by_string) > EvaluatorManager.childs_to_compress:
-            groups = [
-                { 'name': '<number>',            'regexp': re.compile(r"^[0-9]+$")                                                       },
-                { 'name': '<hexadecimal>',       'regexp': re.compile(r"^[0-9a-f]+$")                                                    },
-                { 'name': '<uuid>',              'regexp': re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$") },
-                { 'name': '<letters>',           'regexp': re.compile(r"^[A-Za-z]+$")                                                    },
-                { 'name': '<lettersAndNumbers>', 'regexp': re.compile(r"^[A-Za-z0-9]+$")                                                 },
-                { 'name': '<anything>',          'regexp': re.compile(r"^.+$")                                                           },
-            ]
-            for group in groups:
-                group_name = group.get('name')
-                group_regexp = group.get('regexp')
-                use_group = True
-                for node_name in self.child_nodes_by_string:
-                    if not group_regexp.search(node_name):
-                        use_group = False
-                        break
-                if use_group:
-                    new_node = PathNode(group_name)
-                    self.child_nodes_by_regexp[group_regexp] = new_node
-                    for node_name, each_node in self.child_nodes_by_string.items():
-                        new_node.merge(each_node)
-                    self.child_nodes_by_string.clear()
+        with self._lock:
+            if len(self.child_nodes_by_string) > EvaluatorManager.childs_to_compress:
+                groups = [
+                    { 'name': '<number>',            'regexp': re.compile(r"^[0-9]+$")                                                       },
+                    { 'name': '<hexadecimal>',       'regexp': re.compile(r"^[0-9a-f]+$")                                                    },
+                    { 'name': '<uuid>',              'regexp': re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$") },
+                    { 'name': '<letters>',           'regexp': re.compile(r"^[A-Za-z]+$")                                                    },
+                    { 'name': '<lettersAndNumbers>', 'regexp': re.compile(r"^[A-Za-z0-9]+$")                                                 },
+                    { 'name': '<anything>',          'regexp': re.compile(r"^.+$")                                                           },
+                ]
+                for group in groups:
+                    group_name = group.get('name')
+                    group_regexp = group.get('regexp')
+                    use_group = True
+                    for node_name in self.child_nodes_by_string:
+                        if not group_regexp.search(node_name):
+                            use_group = False
+                            break
+                    if use_group:
+                        new_node = PathNode(group_name)
+                        self.child_nodes_by_regexp[group_regexp] = new_node
+                        for node_name, each_node in self.child_nodes_by_string.items():
+                            new_node.merge(each_node)
+                        self.child_nodes_by_string.clear()
 
     def merge(self, another_node):
         self.evaluator.merge(another_node.evaluator)
