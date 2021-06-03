@@ -14,9 +14,10 @@
 # limitations under the License.
 #
 
-FROM python:rc-buster
+FROM python:3
 
-COPY run.sh /run.sh
-RUN chmod +x /run.sh && pip install requests
+RUN pip install --no-cache-dir Flask pymongo
 
-ENTRYPOINT ["/run.sh"]
+COPY ./main.py /main.py
+
+CMD [ "python", "/main.py" ]

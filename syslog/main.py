@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 #
 # Copyright 2020, Fernando Lemes da Silva
 #
@@ -16,15 +14,14 @@
 # limitations under the License.
 #
 
-HOST, PORT = "0.0.0.0", 514
-
 import os
 import sys
 import logging
-import json
 import re
 import socketserver
-import requests
+from pymongo import MongoClient
+
+HOST, PORT = "0.0.0.0", 514
 
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
@@ -33,16 +30,21 @@ handler.setLevel(logging.DEBUG)
 handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
 logger.addHandler(handler)
 
-haproxy_log_format = re.compile(r"^.* \[([^ ]+)\] ([^ ]+) ([^ ]+)/([^ ]+) ([0-9]+)/([0-9]+)/([0-9]+)/([0-9]+)/([0-9]+) ([0-9]+) ([0-9]+) [^ ]+ [^ ]+ [^ ]+ ([0-9]+)/([0-9]+)/([0-9]+)/([0-9]+)/([0-9]+) ([0-9]+)/([0-9]+) \"([A-Z]+) ([^ ]+) ([^ ]+)\".*$")
-
-
-if 'DETECTOR_URLS' in os.environ:
-	detector_urls = []
-	for url in os.environ['DETECTOR_URLS'].split(','):
-		detector_urls.append(url.strip())
-	logger.info('Sending data to: %s', str(detector_urls))
+if 'MONGO_URL' in os.environ:
+	mongo_url = os.environ['MONGO_URL']
+	client = MongoClient(mongo_url)
+	logger.info('Using mongo URL: %s', mongo_url)
 else:
-	logger.fatal("Missing DETECTOR_URL environment variable.")
+	logger.fatal('Missing MONGO_URL environment variable.')
+	sys.exit()
+
+if 'MONGO_DATABASE' in os.environ:
+	mongo_database = os.environ['MONGO_DATABASE']
+	database = client[mongo_database]
+	collection = database.haproxy_records
+	logger.info('Using mongo database: %s', mongo_database)
+else:
+	logger.fatal('Missing MONGO_DATABASE environment variable.')
 	sys.exit()
 
 ignore_paths = []
@@ -50,6 +52,15 @@ if 'IGNORE_PATHS' in os.environ:
 	for path in os.environ['IGNORE_PATHS'].split(','):
 		ignore_paths.append(path.strip())
 	logger.info('Ignoring HTTP paths: %s', str(ignore_paths))
+
+haproxy_log_format = re.compile(r"^.* \[([^ ]+)\] ([^ ]+) ([^ ]+)/([^ ]+) ([0-9]+)/([0-9]+)/([0-9]+)/([0-9]+)/([0-9]+) ([0-9]+) ([0-9]+) [^ ]+ [^ ]+ [^ ]+ ([0-9]+)/([0-9]+)/([0-9]+)/([0-9]+)/([0-9]+) ([0-9]+)/([0-9]+) \"([A-Z]+) ([^ ]+) ([^ ]+)\".*$")
+
+def insert_into_database(data):
+	logger.info('Sendind document to MongoDB: %s', str(data))
+	try:
+		collection.insert_one(data)
+	except:
+		logger.error('Error sending data to MongoDB.')
 
 class SyslogUDPHandler(socketserver.BaseRequestHandler):
 
@@ -85,19 +96,14 @@ class SyslogUDPHandler(socketserver.BaseRequestHandler):
 				"http_path":								data[19],
 				"http_protocol":							data[20]
 			}
-			for url in detector_urls:
-				url = url.strip()
-				try:
-					response = requests.post(url, data = json.dumps(log_entry), headers={'Content-Type': 'application/json'})
-				except:
-					logger.debug("Error: Could not send data to %s", url)
+			insert_into_database(log_entry)
 		else:
 			logger.warning("Ignoring data: %s", str(data))
 
 if __name__ == "__main__":
 	try:
-		server = socketserver.UDPServer((HOST,PORT), SyslogUDPHandler)
-		server.serve_forever(poll_interval=0.5)
+		server = socketserver.UDPServer((HOST, PORT), SyslogUDPHandler)
+		server.serve_forever(poll_interval=0.1)
 	except (IOError, SystemExit):
 		raise
 	except KeyboardInterrupt:

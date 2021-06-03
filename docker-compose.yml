@@ -77,24 +77,13 @@ services:
   syslog:
     container_name: syslog
     image: syslog
-    environment:
-      - DETECTOR_URLS=http://request-recorder/evaluate,http://evaluator/evaluate
-      - IGNORE_PATHS= /ping
     build:
       context: syslog
-      dockerfile: Dockerfile
-    links:
-      - request-recorder
-      - evaluator
-  request-recorder:
-    container_name: request-recorder
-    image: request-recorder
-    build:
-      context: request-recorder
       dockerfile: Dockerfile
     environment:
       - MONGO_URL=mongodb://mongodb:27017/
       - MONGO_DATABASE=haproxy
+      - IGNORE_PATHS= /ping
     links:
       - mongodb
   mongodb:
@@ -102,11 +91,11 @@ services:
     image: mongo:latest
     ports:
       - "27017:27017"
-  evaluator:
-    container_name: evaluator
-    image: evaluator
-    build:
-      context: evaluator
-      dockerfile: Dockerfile
-    ports:
-      - "80:80"
+#  evaluator:
+#    container_name: evaluator
+#    image: evaluator
+#    build:
+#      context: evaluator
+#      dockerfile: Dockerfile
+#    ports:
+#      - "80:80"
