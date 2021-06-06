@@ -74,6 +74,12 @@ services:
   #
   # Kube Owl
   #
+  rabbitmq:
+    container_name: rabbitmq
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
   syslog:
     container_name: syslog
     image: syslog
@@ -81,18 +87,21 @@ services:
       context: syslog
       dockerfile: Dockerfile
     environment:
+      - IGNORE_PATHS=/ping
+    links:
+      - rabbitmq
+  enrichment:
+    container_name: enrichment
+    image: enrichment
+    build:
+      context: enrichment
+      dockerfile: Dockerfile
+    environment:
       - MONGO_URL=mongodb://mongodb:27017/
       - MONGO_DATABASE=haproxy
-      - IGNORE_PATHS=/ping
     links:
       - mongodb
       - rabbitmq
-  rabbitmq:
-    container_name: rabbitmq
-    image: rabbitmq:3-management
-    ports:
-      - "5672:5672"
-      - "15672:15672"
   mongodb:
     container_name: mongodb
     image: mongo:latest
