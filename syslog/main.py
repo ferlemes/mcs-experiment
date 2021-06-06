@@ -19,33 +19,17 @@ import sys
 import logging
 import re
 import socketserver
-from pymongo import MongoClient
+import json
+import pika
 
 HOST, PORT = "0.0.0.0", 514
 
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 handler = logging.StreamHandler(sys.stdout)
-handler.setLevel(logging.DEBUG)
+handler.setLevel(logging.INFO)
 handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
 logger.addHandler(handler)
-
-if 'MONGO_URL' in os.environ:
-	mongo_url = os.environ['MONGO_URL']
-	client = MongoClient(mongo_url)
-	logger.info('Using mongo URL: %s', mongo_url)
-else:
-	logger.fatal('Missing MONGO_URL environment variable.')
-	sys.exit()
-
-if 'MONGO_DATABASE' in os.environ:
-	mongo_database = os.environ['MONGO_DATABASE']
-	database = client[mongo_database]
-	collection = database.haproxy_records
-	logger.info('Using mongo database: %s', mongo_database)
-else:
-	logger.fatal('Missing MONGO_DATABASE environment variable.')
-	sys.exit()
 
 ignore_paths = []
 if 'IGNORE_PATHS' in os.environ:
@@ -55,12 +39,20 @@ if 'IGNORE_PATHS' in os.environ:
 
 haproxy_log_format = re.compile(r"^.* \[([^ ]+)\] ([^ ]+) ([^ ]+)/([^ ]+) ([0-9]+)/([0-9]+)/([0-9]+)/([0-9]+)/([0-9]+) ([0-9]+) ([0-9]+) [^ ]+ [^ ]+ [^ ]+ ([0-9]+)/([0-9]+)/([0-9]+)/([0-9]+)/([0-9]+) ([0-9]+)/([0-9]+) \"([A-Z]+) ([^ ]+) ([^ ]+)\".*$")
 
+connection = pika.BlockingConnection(pika.ConnectionParameters('rabbitmq'))
+channel = connection.channel()
+channel.queue_declare(queue='http_requests')
+
 def insert_into_database(data):
-	logger.info('Sendind document to MongoDB: %s', str(data))
+	message = json.dumps(data)
+	logger.info('Sendind document to RabbitMQ: %s', message)
 	try:
-		collection.insert_one(data)
+		channel.basic_publish(exchange='',
+							  routing_key='http_requests',
+							  body=message,
+							  properties=pika.BasicProperties(delivery_mode = 2))
 	except:
-		logger.error('Error sending data to MongoDB.')
+		logger.error('Error publishing document to RabbitMQ.')
 
 class SyslogUDPHandler(socketserver.BaseRequestHandler):
 
@@ -108,3 +100,4 @@ if __name__ == "__main__":
 		raise
 	except KeyboardInterrupt:
 		logger.info("Shutting down.")
+		connection.close()

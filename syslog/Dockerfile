@@ -16,8 +16,9 @@
 
 FROM python:3
 
-RUN pip install --no-cache-dir Flask pymongo
+RUN pip install --no-cache-dir pika
 
-COPY ./main.py /main.py
+COPY ./*.py /
+COPY ./run.sh /run.sh
 
-CMD [ "python", "/main.py" ]
+CMD [ "/run.sh" ]

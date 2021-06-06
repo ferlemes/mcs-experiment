@@ -43,7 +43,7 @@ services:
       resources:
         limits:
           cpus: '0.7'
-          memory: 500M
+          memory: 1024M
   #
   # Interceptor
   #
@@ -83,9 +83,16 @@ services:
     environment:
       - MONGO_URL=mongodb://mongodb:27017/
       - MONGO_DATABASE=haproxy
-      - IGNORE_PATHS= /ping
+      - IGNORE_PATHS=/ping
     links:
       - mongodb
+      - rabbitmq
+  rabbitmq:
+    container_name: rabbitmq
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
   mongodb:
     container_name: mongodb
     image: mongo:latest
