@@ -87,6 +87,8 @@ services:
       context: syslog
       dockerfile: Dockerfile
     environment:
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_QUEUE=haproxy_records
       - IGNORE_PATHS=/ping
     links:
       - rabbitmq
@@ -97,6 +99,9 @@ services:
       context: enrichment
       dockerfile: Dockerfile
     environment:
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_INPUT_QUEUE=haproxy_records
+      - RABBITMQ_OUTPUT_QUEUE=haproxy_enriched_records
       - MONGO_URL=mongodb://mongodb:27017/
       - MONGO_DATABASE=haproxy
     links:

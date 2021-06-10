@@ -21,14 +21,36 @@ from pymongo import MongoClient
 import json
 import pika
 
-HOST, PORT = "0.0.0.0", 514
-
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 handler = logging.StreamHandler(sys.stdout)
 handler.setLevel(logging.INFO)
 handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
 logger.addHandler(handler)
+
+#
+# Retrieve RabbitMQ settings
+#
+if 'RABBITMQ_HOST' in os.environ:
+	rabbitmq_host = os.environ['RABBITMQ_HOST']
+	logger.info('Using RabbitMQ host: %s', rabbitmq_host)
+else:
+	logger.fatal('Missing RABBITMQ_HOST environment variable.')
+	sys.exit()
+
+if 'RABBITMQ_INPUT_QUEUE' in os.environ:
+	rabbitmq_input_queue = os.environ['RABBITMQ_INPUT_QUEUE']
+	logger.info('RabbitMQ input queue: %s', rabbitmq_input_queue)
+else:
+	logger.fatal('Missing RABBITMQ_INPUT_QUEUE environment variable.')
+	sys.exit()
+
+if 'RABBITMQ_OUTPUT_QUEUE' in os.environ:
+	rabbitmq_output_queue = os.environ['RABBITMQ_OUTPUT_QUEUE']
+	logger.info('RabbitMQ output queue: %s', rabbitmq_output_queue)
+else:
+	logger.fatal('Missing RABBITMQ_OUTPUT_QUEUE environment variable.')
+	sys.exit()
 
 if 'MONGO_URL' in os.environ:
 	mongo_url = os.environ['MONGO_URL']
@@ -47,43 +69,52 @@ else:
 	logger.fatal('Missing MONGO_DATABASE environment variable.')
 	sys.exit()
 
-# connection = pika.BlockingConnection(pika.ConnectionParameters('rabbitmq'))
-# channel = connection.channel()
-# channel.queue_declare(queue='http_requests')
-#
-# def publish_message(message):
-# 	channel.basic_publish(exchange='',
-# 						  routing_key='http_requests',
-# 						  body=message,
-# 						  properties=pika.BasicProperties(delivery_mode = 2))
-#
-def insert_into_database(data):
+
+
+connection = pika.BlockingConnection(pika.ConnectionParameters(rabbitmq_host))
+channel = connection.channel()
+channel.queue_declare(queue=rabbitmq_input_queue)
+if rabbitmq_output_queue != "null":
+	channel.queue_declare(queue=rabbitmq_output_queue)
+
+def publish_message(data):
+	if rabbitmq_output_queue == "null":
+		return
 	message = json.dumps(data)
-	logger.info('Sendind document to MongoDB: %s', message)
+	logger.debug('Sending processed document to RabbitMQ: %s', message)
+	try:
+		channel.basic_publish(exchange='',
+							  routing_key=rabbitmq_output_queue,
+							  body=message,
+							  properties=pika.BasicProperties(delivery_mode = 2))
+	except:
+		logger.error('Error sending data to RabbitMQ.')
+
+def insert_into_database(data):
+	logger.debug('Sending processed document to MongoDB: %s', json.dumps(data))
 	try:
 		collection.insert_one(data)
 	except:
 		logger.error('Error sending data to MongoDB.')
 
+def enrich_data(data):
+	data['enriched'] = True
+	return data
 
-def main():
-	connection = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
-	channel = connection.channel()
-
-	channel.queue_declare(queue='hello')
+def run_queue_listener():
 
 	def callback(channel, method, properties, body):
 		data = json.loads(body)
-		insert_into_database(data)
+		data = enrich_data(data)
+		insert_into_database(dict(data))
+		publish_message(data)
 
-	channel.basic_consume(queue='http_requests', on_message_callback=callback, auto_ack=True)
-
-	print(' [*] Waiting for messages. To exit press CTRL+C')
+	channel.basic_consume(queue=rabbitmq_input_queue, on_message_callback=callback, auto_ack=True)
 	channel.start_consuming()
 
 if __name__ == "__main__":
 	try:
-		main()
+		run_queue_listener()
 	except (IOError, SystemExit):
 		raise
 	except KeyboardInterrupt:
