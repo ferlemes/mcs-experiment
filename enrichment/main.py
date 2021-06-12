@@ -20,6 +20,7 @@ import logging
 from pymongo import MongoClient
 import json
 import pika
+from PathAggregator import PathAggregator
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -77,6 +78,8 @@ channel.queue_declare(queue=rabbitmq_input_queue)
 if rabbitmq_output_queue != "null":
 	channel.queue_declare(queue=rabbitmq_output_queue)
 
+path_aggregator = PathAggregator()
+
 def publish_message(data):
 	if rabbitmq_output_queue == "null":
 		return
@@ -98,7 +101,7 @@ def insert_into_database(data):
 		logger.error('Error sending data to MongoDB.')
 
 def enrich_data(data):
-	data['enriched'] = True
+	data['aggregated_http_path'] = path_aggregator.get_path_id(data['http_path'])
 	return data
 
 def run_queue_listener():
