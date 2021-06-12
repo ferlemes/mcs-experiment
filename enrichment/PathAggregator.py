@@ -26,7 +26,7 @@ logger = logging.getLogger()
 class PathAggregator:
 
     def __init__(self):
-        self.root = PathNode('root')
+        self.root = PathNode('')
 
     def get_path_id(self, http_path):
         path = http_path + '?'
@@ -57,12 +57,9 @@ class PathNode:
         return self.child_nodes_by_string[node_name]
 
     def compress(self):
-        logger.info("Compress invoked")
         if self.compressed:
             return
-        logger.info("Compress running for %d child nodes", len(self.child_nodes_by_string))
-        if len(self.child_nodes_by_string) > 10:
-            logger.info("Compress has more than 10 children")
+        if len(self.child_nodes_by_string) > 100:
             groups = [
                 { 'name': '<number>',              'regexp': re.compile(r"^[0-9]+$")                                                       },
                 { 'name': '<hexadecimal>',         'regexp': re.compile(r"^[0-9a-f]+$")                                                    },
@@ -74,14 +71,12 @@ class PathNode:
             for group in groups:
                 group_name = group.get('name')
                 group_regexp = group.get('regexp')
-                logger.info("Testing group by %s", group_name)
                 use_group = True
                 for node_name in self.child_nodes_by_string:
                     if not group_regexp.search(node_name):
                         use_group = False
                         break
                 if use_group:
-                    logger.info("Merging using %s", group_name)
                     new_node = PathNode(self.name + '/' + group_name)
                     self.child_nodes_by_regexp[group_regexp] = new_node
                     for node_name, each_node in self.child_nodes_by_string.items():
