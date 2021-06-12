@@ -82,7 +82,7 @@ class PathNode:
                         break
                 if use_group:
                     logger.info("Merging using %s", group_name)
-                    new_node = PathNode(group_name)
+                    new_node = PathNode(self.name + '/' + group_name)
                     self.child_nodes_by_regexp[group_regexp] = new_node
                     for node_name, each_node in self.child_nodes_by_string.items():
                         new_node.merge(each_node)
