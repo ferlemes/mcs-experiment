@@ -17,6 +17,7 @@
 
 import re
 import logging
+import hashlib
 
 logger = logging.getLogger()
 
@@ -28,7 +29,7 @@ class PathAggregator:
     def __init__(self):
         self.root = PathNode('')
 
-    def get_path_id(self, http_path):
+    def get_path_aggregator(self, http_path):
         path = http_path + '?'
         path_parts = path.split('?')
         resource = path_parts[0]
@@ -38,12 +39,14 @@ class PathAggregator:
         for resource_part in resource.split('/'):
             current_node = current_node.get_child(resource_part)
             current_node.compress()
-        return current_node.get_path_id()
+        return current_node.get_uuid()
 
 class PathNode:
 
     def __init__(self, name):
         self.name = name
+        md5sum = hashlib.md5(name.encode('utf-8')).hexdigest()
+        self.uuid = re.sub(r'([0-9a-f]{8})([0-9a-f]{4})([0-9a-f]{4})([0-9a-f]{4})([0-9a-f]{12})', r'\1-\2-\3-\4-\5', md5sum)
         self.child_nodes_by_regexp = {}
         self.child_nodes_by_string = {}
         self.compressed = False
@@ -99,5 +102,5 @@ class PathNode:
             else:
                 self.child_nodes_by_regexp[regexp] = node
 
-    def get_path_id(self):
-        return self.name
+    def get_uuid(self):
+        return self.uuid

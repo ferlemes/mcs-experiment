@@ -109,9 +109,27 @@ services:
       - rabbitmq
   mongodb:
     container_name: mongodb
-    image: mongo:latest
+    image: mongo:4.0
     ports:
       - "27017:27017"
+  redis:
+    container_name: redis
+    image: redis:6
+    ports:
+      - "6379:6379"
+  model-trainer:
+    container_name: model-trainer
+    image: model-trainer
+    build:
+      context: model-trainer
+      dockerfile: Dockerfile
+    environment:
+      - MONGO_URL=mongodb://mongodb:27017/
+      - MONGO_DATABASE=haproxy
+      - REDIS_HOST=redis
+    links:
+      - mongodb
+      - redis
 #  evaluator:
 #    container_name: evaluator
 #    image: evaluator

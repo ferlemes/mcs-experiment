@@ -101,7 +101,7 @@ def insert_into_database(data):
 		logger.error('Error sending data to MongoDB.')
 
 def enrich_data(data):
-	data['aggregated_http_path'] = path_aggregator.get_path_id(data['http_path'])
+	data['aggregated_http_path'] = path_aggregator.get_path_aggregator(data['http_verb'] + data['http_path'])
 	return data
 
 def run_queue_listener():
