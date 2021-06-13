@@ -20,6 +20,7 @@ import logging
 from pymongo import MongoClient
 import json
 import pika
+import time
 from PathAggregator import PathAggregator
 
 logger = logging.getLogger()
@@ -72,11 +73,17 @@ else:
 
 
 
-connection = pika.BlockingConnection(pika.ConnectionParameters(rabbitmq_host))
-channel = connection.channel()
-channel.queue_declare(queue=rabbitmq_input_queue)
-if rabbitmq_output_queue != "null":
-	channel.queue_declare(queue=rabbitmq_output_queue)
+connected = False
+while not connected:
+	try:
+		connection = pika.BlockingConnection(pika.ConnectionParameters(rabbitmq_host))
+		channel = connection.channel()
+		channel.queue_declare(queue=rabbitmq_input_queue)
+		if rabbitmq_output_queue != "null":
+			channel.queue_declare(queue=rabbitmq_output_queue)
+		connected = True
+	except pika.exceptions.AMQPConnectionError:
+		time.sleep(5)
 
 path_aggregator = PathAggregator()
 

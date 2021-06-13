@@ -21,6 +21,7 @@ import re
 import socketserver
 import json
 import pika
+import time
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -70,10 +71,16 @@ if 'IGNORE_PATHS' in os.environ:
 
 haproxy_log_format = re.compile(r"^.* \[([^ ]+)\] ([^ ]+) ([^ ]+)/([^ ]+) ([0-9]+)/([0-9]+)/([0-9]+)/([0-9]+)/([0-9]+) ([0-9]+) ([0-9]+) [^ ]+ [^ ]+ [^ ]+ ([0-9]+)/([0-9]+)/([0-9]+)/([0-9]+)/([0-9]+) ([0-9]+)/([0-9]+) \"([A-Z]+) ([^ ]+) ([^ ]+)\".*$")
 
-connection = pika.BlockingConnection(pika.ConnectionParameters(rabbitmq_host))
-channel = connection.channel()
-if rabbitmq_queue != "null":
-	channel.queue_declare(queue=rabbitmq_queue)
+connected = False
+while not connected:
+	try:
+		connection = pika.BlockingConnection(pika.ConnectionParameters(rabbitmq_host))
+		channel = connection.channel()
+		if rabbitmq_queue != "null":
+			channel.queue_declare(queue=rabbitmq_queue)
+		connected = True
+	except pika.exceptions.AMQPConnectionError:
+		time.sleep(5)
 
 def publish_message(data):
 	if rabbitmq_queue == "null":

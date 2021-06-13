@@ -130,11 +130,16 @@ services:
     links:
       - mongodb
       - redis
-#  evaluator:
-#    container_name: evaluator
-#    image: evaluator
-#    build:
-#      context: evaluator
-#      dockerfile: Dockerfile
-#    ports:
-#      - "80:80"
+  model-evaluator:
+    container_name: model-evaluator
+    image: model-evaluator
+    build:
+      context: model-evaluator
+      dockerfile: Dockerfile
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_QUEUE=haproxy_enriched_records
+      - REDIS_HOST=redis
+    links:
+      - rabbitmq
+      - redis
