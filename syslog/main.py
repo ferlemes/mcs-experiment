@@ -80,6 +80,7 @@ while not connected:
 			channel.queue_declare(queue=rabbitmq_queue)
 		connected = True
 	except pika.exceptions.AMQPConnectionError:
+		logger.info('Waiting before retrying RabbitMQ connection...')
 		time.sleep(5)
 
 def publish_message(data):

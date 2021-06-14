@@ -40,19 +40,18 @@ else:
 	logger.fatal('Missing RABBITMQ_HOST environment variable.')
 	sys.exit()
 
-if 'RABBITMQ_INPUT_QUEUE' in os.environ:
-	rabbitmq_input_queue = os.environ['RABBITMQ_INPUT_QUEUE']
-	logger.info('RabbitMQ input queue: %s', rabbitmq_input_queue)
+if 'RABBITMQ_QUEUE' in os.environ:
+	rabbitmq_queue = os.environ['RABBITMQ_QUEUE']
+	logger.info('RabbitMQ queue: %s', rabbitmq_queue)
 else:
-	logger.fatal('Missing RABBITMQ_INPUT_QUEUE environment variable.')
+	logger.fatal('Missing RABBITMQ_QUEUE environment variable.')
 	sys.exit()
 
-if 'RABBITMQ_OUTPUT_QUEUE' in os.environ:
-	rabbitmq_output_queue = os.environ['RABBITMQ_OUTPUT_QUEUE']
-	logger.info('RabbitMQ output queue: %s', rabbitmq_output_queue)
+if 'RABBITMQ_EXCHANGE' in os.environ:
+	rabbitmq_exchange = os.environ['RABBITMQ_EXCHANGE']
 else:
-	logger.fatal('Missing RABBITMQ_OUTPUT_QUEUE environment variable.')
-	sys.exit()
+	rabbitmq_exchange = "enriched_records"
+logger.info('RabbitMQ exchange: %s', rabbitmq_exchange)
 
 if 'MONGO_URL' in os.environ:
 	mongo_url = os.environ['MONGO_URL']
@@ -78,23 +77,21 @@ while not connected:
 	try:
 		connection = pika.BlockingConnection(pika.ConnectionParameters(rabbitmq_host))
 		channel = connection.channel()
-		channel.queue_declare(queue=rabbitmq_input_queue)
-		if rabbitmq_output_queue != "null":
-			channel.queue_declare(queue=rabbitmq_output_queue)
+		channel.queue_declare(queue=rabbitmq_queue)
+		channel.exchange_declare(exchange=rabbitmq_exchange, exchange_type='fanout')
 		connected = True
 	except pika.exceptions.AMQPConnectionError:
+		logger.info('Waiting before retrying RabbitMQ connection...')
 		time.sleep(5)
 
 path_aggregator = PathAggregator()
 
 def publish_message(data):
-	if rabbitmq_output_queue == "null":
-		return
 	message = json.dumps(data)
 	logger.debug('Sending processed document to RabbitMQ: %s', message)
 	try:
-		channel.basic_publish(exchange='',
-							  routing_key=rabbitmq_output_queue,
+		channel.basic_publish(exchange=rabbitmq_exchange,
+							  routing_key='',
 							  body=message,
 							  properties=pika.BasicProperties(delivery_mode = 2))
 	except:
@@ -119,7 +116,7 @@ def run_queue_listener():
 		insert_into_database(dict(data))
 		publish_message(data)
 
-	channel.basic_consume(queue=rabbitmq_input_queue, on_message_callback=callback, auto_ack=True)
+	channel.basic_consume(queue=rabbitmq_queue, on_message_callback=callback, auto_ack=True)
 	channel.start_consuming()
 
 if __name__ == "__main__":

@@ -47,11 +47,11 @@ else:
     logger.fatal('Missing RABBITMQ_HOST environment variable.')
     sys.exit()
 
-if 'RABBITMQ_QUEUE' in os.environ:
-    rabbitmq_queue = os.environ['RABBITMQ_QUEUE']
-    logger.info('RabbitMQ queue: %s', rabbitmq_queue)
+if 'RABBITMQ_EXCHANGE' in os.environ:
+    rabbitmq_exchange = os.environ['RABBITMQ_EXCHANGE']
+    logger.info('RabbitMQ exchange: %s', rabbitmq_exchange)
 else:
-    logger.fatal('Missing RABBITMQ_QUEUE environment variable.')
+    logger.fatal('Missing RABBITMQ_EXCHANGE environment variable.')
     sys.exit()
 
 
@@ -61,9 +61,12 @@ while not connected:
     try:
         connection = pika.BlockingConnection(pika.ConnectionParameters(rabbitmq_host))
         channel = connection.channel()
-        channel.queue_declare(queue=rabbitmq_queue)
+        result = channel.queue_declare(queue = '', exclusive = True)
+        queue_name = result.method.queue
+        channel.queue_bind(exchange = rabbitmq_exchange, queue = queue_name)
         connected = True
-    except pika.exceptions.AMQPConnectionError:
+    except (pika.exceptions.AMQPConnectionError, pika.exceptions.ChannelClosedByBroker):
+        logger.info('Waiting before retrying RabbitMQ connection...')
         time.sleep(5)
 
 def evaluate_message(data):
@@ -84,7 +87,7 @@ def run_queue_listener():
         data = json.loads(body)
         evaluate_message(data)
 
-    channel.basic_consume(queue=rabbitmq_queue, on_message_callback=callback, auto_ack=True)
+    channel.basic_consume(queue=queue_name, on_message_callback=callback, auto_ack=True)
     channel.start_consuming()
 
 if __name__ == "__main__":
