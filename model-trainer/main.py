@@ -68,8 +68,12 @@ def train_aggregates():
     aggregates = list(collection.aggregate(pipeline))
     for aggregate in aggregates:
         if aggregate['count'] > 100:
-            redis.set(aggregate['_id'], aggregate['count'])
-            logger.info("aggregate: %s  -> %d", aggregate['_id'], aggregate['count'])
+            id = aggregate['_id']
+            count = aggregate['count']
+            if id and count:
+                redis.set(id, count)
+                logger.info("aggregate: %s  -> %d", aggregate['_id'], aggregate['count'])
+
 
 if __name__ == "__main__":
     try:
