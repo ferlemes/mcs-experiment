@@ -16,7 +16,7 @@
 
 FROM python:3
 
-RUN pip install --no-cache-dir redis pymongo
+RUN pip install --no-cache-dir redis pika pymongo
 
 COPY ./*.py /
 COPY ./run.sh /run.sh

@@ -118,7 +118,6 @@ services:
     ports:
       - "6379:6379"
   model-trainer:
-    container_name: model-trainer
     image: model-trainer
     build:
       context: model-trainer
@@ -126,20 +125,13 @@ services:
     environment:
       - MONGO_URL=mongodb://mongodb:27017/
       - MONGO_DATABASE=haproxy
-      - REDIS_HOST=redis
-    links:
-      - mongodb
-      - redis
-  model-evaluator:
-    container_name: model-evaluator
-    image: model-evaluator
-    build:
-      context: model-evaluator
-      dockerfile: Dockerfile
-    environment:
       - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_EXCHANGE=haproxy_enriched_records
       - REDIS_HOST=redis
     links:
+      - mongodb
       - rabbitmq
       - redis
+    deploy:
+      mode: replicated
+      replicas: 3

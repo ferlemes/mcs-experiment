@@ -17,7 +17,7 @@
 
 import re
 import logging
-import hashlib
+import uuid
 
 logger = logging.getLogger()
 
@@ -45,8 +45,7 @@ class PathNode:
 
     def __init__(self, name):
         self.name = name
-        md5sum = hashlib.md5(name.encode('utf-8')).hexdigest()
-        self.uuid = re.sub(r'([0-9a-f]{8})([0-9a-f]{4})([0-9a-f]{4})([0-9a-f]{4})([0-9a-f]{12})', r'\1-\2-\3-\4-\5', md5sum)
+        self.uuid = str(uuid.uuid5(uuid.NAMESPACE_URL, name))
         self.child_nodes_by_regexp = {}
         self.child_nodes_by_string = {}
         self.compressed = False

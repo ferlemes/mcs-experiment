@@ -21,6 +21,8 @@ from pymongo import MongoClient
 import json
 import pika
 import time
+import random
+import uuid
 from PathAggregator import PathAggregator
 
 logger = logging.getLogger()
@@ -106,6 +108,8 @@ def insert_into_database(data):
 
 def enrich_data(data):
 	data['aggregated_http_path'] = path_aggregator.get_path_aggregator(data['http_verb'] + data['http_path'])
+	data['uuid'] = str(uuid.uuid4())
+	data['random'] = random.randint(0, 65535)
 	return data
 
 def run_queue_listener():
