@@ -48,12 +48,16 @@ class AnomalyDetector:
         ]
         aggregates = list(self.mongo_collection.aggregate(pipeline))
         for aggregate in aggregates:
-            if aggregate['count'] > 100:
-                id = aggregate['_id']
-                count = aggregate['count']
-                if id and count:
-                    self.redis_client.set(id, count)
-                    logger.info("aggregate: %s  -> %d", aggregate['_id'], aggregate['count'])
+            id = aggregate['_id']
+            count = aggregate['count']
+            training_data = []
+            if id and count > 100:
+                for http_record in self.mongo_collection.find({ "aggregated_http_path": id}):
+                    line = self.prepare_data(http_record)
+                    training_data.append(line)
+                logger.info("training_data=%s", str(training_data))
+                self.redis_client.set(id, count)
+                logger.info("aggregate: %s  -> %d", aggregate['_id'], aggregate['count'])
 
     def evaluate(self, data):
         aggregated_http_path = data.get('aggregated_http_path')
@@ -61,8 +65,17 @@ class AnomalyDetector:
         if aggregated_http_path:
             redis_info = self.redis_client.get(aggregated_http_path)
             if redis_info:
-                logger.info("Value from Redis = %d", int(redis_info))
+                data_to_evaluate = self.prepare_data(data)
+                logger.info("Value from Redis = %d. Evaluting=%s", int(redis_info), str(data_to_evaluate))
                 if int(redis_info) > 1000:
                     logger.info("Evaluated %s as normal", http_path)
                 else:
                     logger.info("Unknown evaluation for %s ", http_path)
+
+    def prepare_data(self, data):
+        processed_data = [
+            data.get("bytes_count", 0),
+            data.get("http_status", 0),
+            data.get("request_time", 0)
+        ]
+        return processed_data

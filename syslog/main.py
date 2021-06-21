@@ -110,23 +110,12 @@ class SyslogUDPHandler(socketserver.BaseRequestHandler):
 				"frontend":									record[1],
 				"backend":									record[2],
 				"server":									record[3],
-				"time_to_receive_request":					record[4],
-				"time_in_queue":							record[5],
-				"time_to_tcp_connect":						record[6],
-				"time_to_get_response":						record[7],
-				"total_time_active":						record[8],
-				"http_status":								record[9],
-				"bytes_count":								record[10],
-				"concurrent_connections_haproxy":			record[11],
-				"concurrent_connections_frontend":			record[12],
-				"concurrent_connections_backend":			record[13],
-				"concurrent_active_connections_on_server":	record[14],
-				"connection_retry_attempts":				record[15],
-				"queue1":									record[16],
-				"queue2":									record[17],
+				"http_protocol":							record[20],
 				"http_verb":								record[18],
 				"http_path":								record[19],
-				"http_protocol":							record[20]
+				"bytes_count":								record[10],
+				"http_status":								record[9],
+				"request_time":								record[7]
 			}
 			publish_message(haproxy_record)
 		else:
