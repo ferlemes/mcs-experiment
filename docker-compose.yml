@@ -88,7 +88,7 @@ services:
       dockerfile: Dockerfile
     environment:
       - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_QUEUE=haproxy_records
+      - RABBITMQ_QUEUE=http_records
       - IGNORE_PATHS=/ping
     links:
       - rabbitmq
@@ -100,10 +100,11 @@ services:
       dockerfile: Dockerfile
     environment:
       - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_QUEUE=haproxy_records
-      - RABBITMQ_EXCHANGE=haproxy_enriched_records
+      - RABBITMQ_QUEUE=http_records
+      - RABBITMQ_EXCHANGE=http_enriched_records
       - MONGO_URL=mongodb://mongodb:27017/
-      - MONGO_DATABASE=haproxy
+      - MONGO_DATABASE=kubeowl
+      - MONGO_COLLECTION=http_records
     links:
       - mongodb
       - rabbitmq
@@ -124,9 +125,10 @@ services:
       dockerfile: Dockerfile
     environment:
       - MONGO_URL=mongodb://mongodb:27017/
-      - MONGO_DATABASE=haproxy
+      - MONGO_DATABASE=kubeowl
       - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_EXCHANGE=haproxy_enriched_records
+      - RABBITMQ_EXCHANGE=http_enriched_records
+      - RABBITMQ_QUEUE=evaluate_response_time
       - REDIS_HOST=redis
     links:
       - mongodb

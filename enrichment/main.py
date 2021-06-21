@@ -57,7 +57,7 @@ logger.info('RabbitMQ exchange: %s', rabbitmq_exchange)
 
 if 'MONGO_URL' in os.environ:
 	mongo_url = os.environ['MONGO_URL']
-	client = MongoClient(mongo_url)
+	mongo_client = MongoClient(mongo_url)
 	logger.info('Using mongo URL: %s', mongo_url)
 else:
 	logger.fatal('Missing MONGO_URL environment variable.')
@@ -65,13 +65,19 @@ else:
 
 if 'MONGO_DATABASE' in os.environ:
 	mongo_database = os.environ['MONGO_DATABASE']
-	database = client[mongo_database]
-	collection = database.haproxy_records
+	database = mongo_client[mongo_database]
 	logger.info('Using mongo database: %s', mongo_database)
 else:
 	logger.fatal('Missing MONGO_DATABASE environment variable.')
 	sys.exit()
 
+if 'MONGO_COLLECTION' in os.environ:
+	mongo_collection = os.environ['MONGO_COLLECTION']
+	collection = database[mongo_collection]
+	logger.info('Using mongo collection: %s', mongo_collection)
+else:
+	logger.fatal('Missing MONGO_COLLECTION environment variable.')
+	sys.exit()
 
 
 connected = False
