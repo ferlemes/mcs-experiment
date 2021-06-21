@@ -118,14 +118,15 @@ services:
     image: redis:6
     ports:
       - "6379:6379"
-  model-trainer:
-    image: model-trainer
+  response-time-evaluator:
+    image: response-time-evaluator
     build:
-      context: model-trainer
+      context: response-time-evaluator
       dockerfile: Dockerfile
     environment:
       - MONGO_URL=mongodb://mongodb:27017/
       - MONGO_DATABASE=kubeowl
+      - MONGO_COLLECTION=http_records
       - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_EXCHANGE=http_enriched_records
       - RABBITMQ_QUEUE=evaluate_response_time
@@ -136,4 +137,4 @@ services:
       - redis
     deploy:
       mode: replicated
-      replicas: 3
+      replicas: 2

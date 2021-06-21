@@ -22,7 +22,7 @@ import threading
 import pika
 import json
 from pymongo import MongoClient
-from bson.son import SON
+from AnomalyDetector import AnomalyDetector
 import redis
 
 logger = logging.getLogger()
@@ -31,8 +31,6 @@ handler = logging.StreamHandler(sys.stdout)
 handler.setLevel(logging.INFO)
 handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
 logger.addHandler(handler)
-
-train_namespace = "response_time_per_endpoint"
 
 if 'REDIS_HOST' in os.environ:
     redis_host = os.environ['REDIS_HOST']
@@ -56,10 +54,16 @@ else:
 if 'MONGO_DATABASE' in os.environ:
     mongo_database = os.environ['MONGO_DATABASE']
     database = client[mongo_database]
-    collection = database.haproxy_records
     logger.info('Using mongo database: %s', mongo_database)
 else:
     logger.fatal('Missing MONGO_DATABASE environment variable.')
+    sys.exit()
+
+if 'MONGO_COLLECTION' in os.environ:
+    mongo_collection = os.environ['MONGO_COLLECTION']
+    logger.info('Using mongo collection: %s', mongo_collection)
+else:
+    logger.fatal('Missing MONGO_COLLECTION environment variable.')
     sys.exit()
 
 if 'RABBITMQ_HOST' in os.environ:
@@ -96,46 +100,12 @@ while not connected:
         time.sleep(5)
 
 
-
-def training_thread():
-    while True:
-        try_train_aggregates()
-        time.sleep(2)
-
-def try_train_aggregates():
-    try:
-        with redis_client.lock(train_namespace + "/train_mutex", blocking_timeout=5):
-            train_aggregates()
-            time.sleep(60)
-    except redis.exceptions.LockError:
-        logger.info("Could not acquire lock for training.")
-
-def train_aggregates():
-    logger.info("train_aggregates():")
-    pipeline = [
-        {"$group": {"_id": "$aggregated_http_path", "count": {"$sum": 1}}},
-        {"$sort": SON([("count", -1), ("_id", -1)])}
-    ]
-    aggregates = list(collection.aggregate(pipeline))
-    for aggregate in aggregates:
-        if aggregate['count'] > 100:
-            id = aggregate['_id']
-            count = aggregate['count']
-            if id and count:
-                redis_client.set(id, count)
-                logger.info("aggregate: %s  -> %d", aggregate['_id'], aggregate['count'])
+anomaly_detector = AnomalyDetector(mongo_database = database,
+                                   mongo_collection = mongo_collection,
+                                   redis_client = redis_client)
 
 def evaluate_message(data):
-    aggregated_http_path = data.get('aggregated_http_path')
-    http_path = data.get('http_path')
-    if aggregated_http_path:
-        redis_info = redis_client.get(aggregated_http_path)
-        if redis_info:
-            logger.info("Value from Redis = %d", int(redis_info))
-            if int(redis_info) > 1000:
-                logger.info("Evaluated %s as normal", http_path)
-            else:
-                logger.info("Unknown evaluation for %s ", http_path)
+    anomaly_detector.evaluate(data)
 
 def run_queue_listener():
 
@@ -148,7 +118,7 @@ def run_queue_listener():
 
 if __name__ == "__main__":
     try:
-        training_thread = threading.Thread(target=training_thread)
+        training_thread = threading.Thread(target=anomaly_detector.training_thread)
         training_thread.start()
         run_queue_listener()
     except (IOError, SystemExit):
