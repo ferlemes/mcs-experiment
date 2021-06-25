@@ -24,6 +24,7 @@ import json
 from pymongo import MongoClient
 from AnomalyDetector import AnomalyDetector
 import redis
+from flask import Flask
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -41,11 +42,9 @@ if 'REDIS_PORT' in os.environ:
 else:
     redis_port = '6379'
 logger.info('Using Redis at: %s:%s', redis_host, redis_port)
-redis_client = redis.Redis(host=redis_host, port=int(redis_port), db=0)
 
 if 'MONGO_URL' in os.environ:
     mongo_url = os.environ['MONGO_URL']
-    client = MongoClient(mongo_url)
     logger.info('Using mongo URL: %s', mongo_url)
 else:
     logger.fatal('Missing MONGO_URL environment variable.')
@@ -53,7 +52,6 @@ else:
 
 if 'MONGO_DATABASE' in os.environ:
     mongo_database = os.environ['MONGO_DATABASE']
-    database = client[mongo_database]
     logger.info('Using mongo database: %s', mongo_database)
 else:
     logger.fatal('Missing MONGO_DATABASE environment variable.')
@@ -87,40 +85,77 @@ else:
     logger.fatal('Missing RABBITMQ_QUEUE environment variable.')
     sys.exit()
 
-connected = False
-while not connected:
-    try:
-        connection = pika.BlockingConnection(pika.ConnectionParameters(rabbitmq_host))
-        channel = connection.channel()
-        channel.queue_declare(queue = rabbitmq_queue, exclusive = False)
-        channel.queue_bind(exchange = rabbitmq_exchange, queue = rabbitmq_queue)
-        connected = True
-    except (pika.exceptions.AMQPConnectionError, pika.exceptions.ChannelClosedByBroker):
-        logger.info('Waiting before retrying RabbitMQ connection...')
-        time.sleep(5)
+
+service_ok = True
+flask_app = Flask(__name__)
 
 
-anomaly_detector = AnomalyDetector(mongo_database = database,
-                                   mongo_collection = mongo_collection,
-                                   redis_client = redis_client)
+@flask_app.route('/healthcheck')
+def healthcheck():
+    if service_ok:
+        return 'OK', 200
+    else:
+        return 'NOK', 400
 
-def evaluate_message(data):
-    anomaly_detector.evaluate(data)
+
+anomaly_detector = AnomalyDetector()
+
+def run_trainer():
+    global service_ok
+    while True:
+        try:
+            client = MongoClient(mongo_url)
+            database = client[mongo_database]
+            redis_client = redis.Redis(host=redis_host, port=int(redis_port), db=0)
+            service_ok = True
+            while True:
+                anomaly_detector.training_thread(database, mongo_collection, redis_client)
+                time.sleep(60)
+        except:
+            service_ok = False
+            time.sleep(15)
+
+
+def evaluate_message(redis_client, data):
+    anomaly_detector.evaluate(redis_client, data)
+
 
 def run_queue_listener():
+    global service_ok
+    while True:
 
-    def callback(channel, method, properties, body):
-        data = json.loads(body)
-        evaluate_message(data)
+        connected = False
+        while not connected:
+            try:
+                connection = pika.BlockingConnection(pika.ConnectionParameters(rabbitmq_host))
+                channel = connection.channel()
+                channel.queue_declare(queue = rabbitmq_queue, exclusive = False)
+                channel.queue_bind(exchange = rabbitmq_exchange, queue = rabbitmq_queue)
+                connected = True
+            except (pika.exceptions.AMQPConnectionError, pika.exceptions.ChannelClosedByBroker):
+                logger.info('Waiting before retrying RabbitMQ connection...')
+                time.sleep(15)
 
-    channel.basic_consume(queue=rabbitmq_queue, on_message_callback=callback, auto_ack=True)
-    channel.start_consuming()
+        try:
+            redis_client = redis.Redis(host=redis_host, port=int(redis_port), db=0)
+            def callback(channel, method, properties, body):
+                data = json.loads(body)
+                evaluate_message(redis_client, data)
+            channel.basic_consume(queue=rabbitmq_queue, on_message_callback=callback, auto_ack=True)
+            service_ok = True
+            channel.start_consuming()
+        except:
+            service_ok = False
+            time.sleep(15)
+
 
 if __name__ == "__main__":
     try:
-        training_thread = threading.Thread(target=anomaly_detector.training_thread)
+        training_thread = threading.Thread(target=run_trainer)
         training_thread.start()
-        run_queue_listener()
+        queue_listener_thread=threading.Thread(target=run_queue_listener)
+        queue_listener_thread.start()
+        flask_app.run(host='0.0.0.0', port=80)
     except (IOError, SystemExit):
         raise
     except KeyboardInterrupt:

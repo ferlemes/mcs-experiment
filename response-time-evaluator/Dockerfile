@@ -16,7 +16,7 @@
 
 FROM python:3
 
-RUN pip install --no-cache-dir redis pika pymongo numpy sklearn
+RUN pip install --no-cache-dir redis pika pymongo numpy sklearn Flask
 
 COPY ./*.py /
 COPY ./run.sh /run.sh

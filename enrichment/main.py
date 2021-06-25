@@ -81,25 +81,19 @@ else:
 
 flask_app = Flask(__name__)
 
-rabbit_ok = True
-mongo_ok = True
+service_ok = True
 
 @flask_app.route('/healthcheck')
 def healthcheck():
-	if rabbit_ok and mongo_ok:
+	if service_ok:
 		return 'OK', 200
 	else:
-		response = ''
-		if not rabbit_ok:
-			response += 'RabbitMQ NOK '
-		if not mongo_ok:
-			response += 'MongoDB NOK'
-		return response, 400
+		return 'NOK', 400
 
 path_aggregator = PathAggregator()
 
 def publish_message(channel, data):
-	global rabbit_ok
+	global service_ok
 	message = json.dumps(data)
 	logger.debug('Sending processed document to RabbitMQ: %s', message)
 	try:
@@ -107,21 +101,21 @@ def publish_message(channel, data):
 							  routing_key='',
 							  body=message,
 							  properties=pika.BasicProperties(delivery_mode = 2))
-		rabbit_ok = True
+		service_ok = True
 	except:
 		logger.error('Error sending data to RabbitMQ.')
-		rabbit_ok = False
+		raise
 
 
 def insert_into_database(collection, data):
-	global mongo_ok
+	global service_ok
 	logger.debug('Sending processed document to MongoDB: %s', json.dumps(data))
 	try:
 		collection.insert_one(data)
-		mongo_ok = True
+		service_ok = True
 	except:
 		logger.error('Error sending data to MongoDB.')
-		mongo_ok = False
+		raise
 
 
 def enrich_data(data):
@@ -132,7 +126,7 @@ def enrich_data(data):
 
 
 def run_queue_listener():
-	global rabbit_ok
+	global service_ok
 	while True:
 
 		connected = False
@@ -147,21 +141,20 @@ def run_queue_listener():
 				logger.info('Waiting before retrying RabbitMQ connection...')
 				time.sleep(15)
 
-		mongo_client = MongoClient(mongo_url)
-		database = mongo_client[mongo_database]
-		collection = database[mongo_collection]
-
-		def callback(channel, method, properties, body):
-			data = json.loads(body)
-			data = enrich_data(data)
-			insert_into_database(collection, dict(data))
-			publish_message(channel, data)
-		channel.basic_consume(queue=rabbitmq_queue, on_message_callback=callback, auto_ack=True)
 		try:
+			mongo_client = MongoClient(mongo_url)
+			database = mongo_client[mongo_database]
+			collection = database[mongo_collection]
+			def callback(channel, method, properties, body):
+				data = json.loads(body)
+				data = enrich_data(data)
+				insert_into_database(collection, dict(data))
+				publish_message(channel, data)
+			channel.basic_consume(queue=rabbitmq_queue, on_message_callback=callback, auto_ack=True)
 			channel.start_consuming()
 		except:
-			rabbit_ok = False
-
+			service_ok = False
+			time.sleep(15)
 
 if __name__ == "__main__":
 	try:
