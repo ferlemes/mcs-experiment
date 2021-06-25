@@ -16,7 +16,7 @@
 
 FROM python:3
 
-RUN pip install --no-cache-dir pika pymongo
+RUN pip install --no-cache-dir pika pymongo Flask
 
 COPY ./*.py /
 COPY ./run.sh /run.sh

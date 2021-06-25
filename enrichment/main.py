@@ -17,6 +17,7 @@
 import os
 import sys
 import logging
+import threading
 from pymongo import MongoClient
 import json
 import pika
@@ -24,6 +25,7 @@ import time
 import random
 import uuid
 from PathAggregator import PathAggregator
+from flask import Flask
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -57,7 +59,6 @@ logger.info('RabbitMQ exchange: %s', rabbitmq_exchange)
 
 if 'MONGO_URL' in os.environ:
 	mongo_url = os.environ['MONGO_URL']
-	mongo_client = MongoClient(mongo_url)
 	logger.info('Using mongo URL: %s', mongo_url)
 else:
 	logger.fatal('Missing MONGO_URL environment variable.')
@@ -65,7 +66,6 @@ else:
 
 if 'MONGO_DATABASE' in os.environ:
 	mongo_database = os.environ['MONGO_DATABASE']
-	database = mongo_client[mongo_database]
 	logger.info('Using mongo database: %s', mongo_database)
 else:
 	logger.fatal('Missing MONGO_DATABASE environment variable.')
@@ -73,28 +73,33 @@ else:
 
 if 'MONGO_COLLECTION' in os.environ:
 	mongo_collection = os.environ['MONGO_COLLECTION']
-	collection = database[mongo_collection]
 	logger.info('Using mongo collection: %s', mongo_collection)
 else:
 	logger.fatal('Missing MONGO_COLLECTION environment variable.')
 	sys.exit()
 
 
-connected = False
-while not connected:
-	try:
-		connection = pika.BlockingConnection(pika.ConnectionParameters(rabbitmq_host))
-		channel = connection.channel()
-		channel.queue_declare(queue=rabbitmq_queue)
-		channel.exchange_declare(exchange=rabbitmq_exchange, exchange_type='fanout')
-		connected = True
-	except pika.exceptions.AMQPConnectionError:
-		logger.info('Waiting before retrying RabbitMQ connection...')
-		time.sleep(5)
+flask_app = Flask(__name__)
+
+rabbit_ok = True
+mongo_ok = True
+
+@flask_app.route('/healthcheck')
+def healthcheck():
+	if rabbit_ok and mongo_ok:
+		return 'OK', 200
+	else:
+		response = ''
+		if not rabbit_ok:
+			response += 'RabbitMQ NOK '
+		if not mongo_ok:
+			response += 'MongoDB NOK'
+		return response, 400
 
 path_aggregator = PathAggregator()
 
-def publish_message(data):
+def publish_message(channel, data):
+	global rabbit_ok
 	message = json.dumps(data)
 	logger.debug('Sending processed document to RabbitMQ: %s', message)
 	try:
@@ -102,15 +107,22 @@ def publish_message(data):
 							  routing_key='',
 							  body=message,
 							  properties=pika.BasicProperties(delivery_mode = 2))
+		rabbit_ok = True
 	except:
 		logger.error('Error sending data to RabbitMQ.')
+		rabbit_ok = False
 
-def insert_into_database(data):
+
+def insert_into_database(collection, data):
+	global mongo_ok
 	logger.debug('Sending processed document to MongoDB: %s', json.dumps(data))
 	try:
 		collection.insert_one(data)
+		mongo_ok = True
 	except:
 		logger.error('Error sending data to MongoDB.')
+		mongo_ok = False
+
 
 def enrich_data(data):
 	data['aggregated_http_path'] = path_aggregator.get_path_aggregator(data['http_verb'] + data['http_path'])
@@ -118,20 +130,44 @@ def enrich_data(data):
 	data['random'] = random.randint(0, 65535)
 	return data
 
+
 def run_queue_listener():
+	global rabbit_ok
+	while True:
 
-	def callback(channel, method, properties, body):
-		data = json.loads(body)
-		data = enrich_data(data)
-		insert_into_database(dict(data))
-		publish_message(data)
+		connected = False
+		while not connected:
+			try:
+				connection = pika.BlockingConnection(pika.ConnectionParameters(rabbitmq_host))
+				channel = connection.channel()
+				channel.queue_declare(queue=rabbitmq_queue)
+				channel.exchange_declare(exchange=rabbitmq_exchange, exchange_type='fanout')
+				connected = True
+			except pika.exceptions.AMQPConnectionError:
+				logger.info('Waiting before retrying RabbitMQ connection...')
+				time.sleep(15)
 
-	channel.basic_consume(queue=rabbitmq_queue, on_message_callback=callback, auto_ack=True)
-	channel.start_consuming()
+		mongo_client = MongoClient(mongo_url)
+		database = mongo_client[mongo_database]
+		collection = database[mongo_collection]
+
+		def callback(channel, method, properties, body):
+			data = json.loads(body)
+			data = enrich_data(data)
+			insert_into_database(collection, dict(data))
+			publish_message(channel, data)
+		channel.basic_consume(queue=rabbitmq_queue, on_message_callback=callback, auto_ack=True)
+		try:
+			channel.start_consuming()
+		except:
+			rabbit_ok = False
+
 
 if __name__ == "__main__":
 	try:
-		run_queue_listener()
+		queue_listener_thread=threading.Thread(target=run_queue_listener)
+		queue_listener_thread.start()
+		flask_app.run(host='0.0.0.0', port=80)
 	except (IOError, SystemExit):
 		raise
 	except KeyboardInterrupt:

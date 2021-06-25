@@ -98,6 +98,11 @@ services:
     build:
       context: enrichment
       dockerfile: Dockerfile
+    healthcheck:
+      test: curl -f http://localhost/healthcheck || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 3
     environment:
       - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_QUEUE=http_records
