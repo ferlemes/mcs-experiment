@@ -39,7 +39,7 @@ class PathAggregator:
         for resource_part in resource.split('/'):
             current_node = current_node.get_child(resource_part)
             current_node.compress()
-        return current_node.get_uuid()
+        return current_node.get_uuid(), current_node.get_name()
 
 class PathNode:
 
@@ -103,3 +103,6 @@ class PathNode:
 
     def get_uuid(self):
         return self.uuid
+
+    def get_name(self):
+        return self.name

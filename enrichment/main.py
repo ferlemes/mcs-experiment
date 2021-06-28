@@ -119,7 +119,9 @@ def insert_into_database(collection, data):
 
 
 def enrich_data(data):
-	data['aggregated_http_path'] = path_aggregator.get_path_aggregator(data['http_verb'] + data['http_path'])
+	aggregator, new_path = path_aggregator.get_path_aggregator(data['http_verb'] + data['http_path'])
+	data['aggregated_http_path'] = aggregator
+	data['http_path'] = new_path[new_path.find('/', 1):]
 	data['uuid'] = str(uuid.uuid4())
 	data['random'] = random.randint(0, 65535)
 	return data

@@ -50,12 +50,13 @@ class AnomalyDetector:
             id = aggregate['_id']
             count = aggregate['count']
             training_data = []
-            if id and count > 100:
+            if id and count > 1000:
                 for http_record in mongo_collection.find({ "aggregated_http_path": id}):
                     line = self.prepare_data(http_record)
                     training_data.append(line)
                 training_data = np.matrix(training_data)
-                model = svm.OneClassSVM(nu=0.001, kernel="rbf", gamma=0.1)
+                logger.info("Training aggregated path %s", id)
+                model = svm.OneClassSVM(nu=0.001, kernel="rbf", gamma='scale')
                 model.fit(training_data)
                 redis_client.set(id, pickle.dumps(model))
 
@@ -67,7 +68,8 @@ class AnomalyDetector:
                 model = pickle.loads(serialized_model)
                 data_to_evaluate = np.matrix(self.prepare_data(data))
                 result = model.predict(data_to_evaluate)
-                logger.info("Prob=%s", str(result))
+                if result[0] == -1:
+                    logger.info("Abnormal data found: %s", str(data))
 
     def prepare_data(self, data):
         processed_data = [

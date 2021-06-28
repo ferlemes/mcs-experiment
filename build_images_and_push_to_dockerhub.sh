@@ -2,7 +2,7 @@
 
 docker-compose build
 
-VERSION=1.0.6
+VERSION=1.0.8
 
 docker tag enrichment:latest kubeowl/enrichment:${VERSION}
 docker push kubeowl/enrichment:${VERSION}
