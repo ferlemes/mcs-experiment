@@ -147,6 +147,7 @@ def run_queue_listener():
 			mongo_client = MongoClient(mongo_url)
 			database = mongo_client[mongo_database]
 			collection = database[mongo_collection]
+			service_ok = True
 			def callback(channel, method, properties, body):
 				data = json.loads(body)
 				data = enrich_data(data)
