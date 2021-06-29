@@ -22,6 +22,7 @@ import socketserver
 import json
 import pika
 import time
+from datetime import datetime
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -105,15 +106,17 @@ class SyslogUDPHandler(socketserver.BaseRequestHandler):
 			record = search.groups()
 			if record[19] in ignore_paths:
 				return
+			timestamp_epoch = int(datetime.strptime(record[0], '%d/%b/%Y:%H:%M:%S.%f').timestamp())
 			haproxy_record = {
-				"timestamp":								record[0],
+				"timestamp":								timestamp_epoch,
 				"frontend":									record[1],
 				"backend":									record[2],
 				"server":									record[3],
 				"http_protocol":							record[20],
 				"http_verb":								record[18],
 				"http_path":								record[19],
-				"bytes_count":								record[10],
+				"bytes_sent":								record[10],
+				"bytes_received":							record[10],
 				"http_status":								record[9],
 				"request_time":								record[7]
 			}

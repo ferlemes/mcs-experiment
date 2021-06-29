@@ -123,10 +123,10 @@ services:
     image: redis:6
     ports:
       - "6379:6379"
-  response-time-evaluator:
-    image: response-time-evaluator
+  anomaly-detector:
+    image: anomaly-detector
     build:
-      context: response-time-evaluator
+      context: anomaly-detector
       dockerfile: Dockerfile
     healthcheck:
       test: curl -f http://localhost/healthcheck || exit 1
@@ -148,3 +148,23 @@ services:
     deploy:
       mode: replicated
       replicas: 1
+  archiver:
+    container_name: archiver
+    image: archiver
+    build:
+      context: archiver
+      dockerfile: Dockerfile
+    healthcheck:
+      test: curl -f http://localhost/healthcheck || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    environment:
+      - MONGO_URL=mongodb://mongodb:27017/
+      - MONGO_DATABASE=kubeowl
+      - MONGO_COLLECTION=http_records
+      - ARCHIVE_RECORDS_AFTER=300
+      - REMOVE_ARCHIVED_RECORDS=false
+      - ARCHIVE_FOLDER=/data/
+    links:
+      - mongodb

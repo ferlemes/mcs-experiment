@@ -1,11 +1,10 @@
 #!/bin/bash
 
-docker-compose build
+VERSION=1.0.9
+IMAGES="enrichment,anomaly-detector,archiver"
 
-VERSION=1.0.8
-
-docker tag enrichment:latest kubeowl/enrichment:${VERSION}
-docker push kubeowl/enrichment:${VERSION}
-
-docker tag response-time-evaluator:latest kubeowl/response-time-evaluator:${VERSION}
-docker push kubeowl/response-time-evaluator:${VERSION}
+echo ${IMAGES} | tr ',' '\n' | while read image_name; do
+    docker-compose build ${image_name}
+    docker tag ${image_name}:latest kubeowl/${image_name}:${VERSION}
+    docker push kubeowl/${image_name}:${VERSION}
+done

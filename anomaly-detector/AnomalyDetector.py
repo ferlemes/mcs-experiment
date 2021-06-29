@@ -28,7 +28,7 @@ class AnomalyDetector:
 
     def __init__(self):
         logger.info('Initializing anomaly detector.')
-        self.namespace = 'response_time_per_endpoint'
+        self.namespace = 'anomaly-detector'
 
     def training_thread(self, mongo_database, mongo_collection, redis_client):
         try:
@@ -73,7 +73,8 @@ class AnomalyDetector:
 
     def prepare_data(self, data):
         processed_data = [
-            int(data.get("bytes_count", 0)),
+            int(data.get("bytes_sent", 0)),
+            int(data.get("bytes_received", 0)),
             int(data.get("http_status", 0)),
             int(data.get("request_time", 0))
         ]

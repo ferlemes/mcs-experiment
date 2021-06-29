@@ -86,7 +86,7 @@ else:
     sys.exit()
 
 
-service_ok = True
+service_ok = False
 flask_app = Flask(__name__)
 
 
@@ -110,7 +110,7 @@ def run_trainer():
             service_ok = True
             while True:
                 anomaly_detector.training_thread(database, mongo_collection, redis_client)
-                time.sleep(60)
+                time.sleep(300)
         except:
             service_ok = False
             time.sleep(15)
