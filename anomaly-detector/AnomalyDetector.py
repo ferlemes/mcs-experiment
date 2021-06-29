@@ -76,6 +76,6 @@ class AnomalyDetector:
             int(data.get("bytes_sent", 0)),
             int(data.get("bytes_received", 0)),
             int(data.get("http_status", 0)),
-            int(data.get("request_time", 0))
+            int(data.get("duration", 0))
         ]
         return processed_data
