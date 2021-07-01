@@ -22,6 +22,8 @@ import threading
 import json
 from pymongo import MongoClient
 from flask import Flask
+from prometheus_flask_exporter import PrometheusMetrics
+
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -75,9 +77,13 @@ logger.info('Removing archived records: %s', str(remove_archive_records))
 
 service_ok = False
 flask_app = Flask(__name__)
+metrics = PrometheusMetrics(flask_app)
+counter = metrics.info('archived_records', 'Number of archived records')
+counter.set(0)
 
 
 @flask_app.route('/healthcheck')
+@metrics.do_not_track()
 def healthcheck():
     if service_ok:
         return 'OK', 200
@@ -118,6 +124,7 @@ def archive_records(collection):
             if not grouped_records.get(filename):
                 grouped_records[filename] = []
             grouped_records.get(filename).append(json.dumps(record))
+            counter.inc()
         dump_groups_to_file(grouped_records)
     else:
         logger.info("No records to archive.")

@@ -16,7 +16,8 @@
 
 FROM python:3
 
-RUN pip install --no-cache-dir pymongo Flask && mkdir /data
+RUN pip install --no-cache-dir pymongo Flask prometheus-flask-exporter && \
+    mkdir /data
 
 COPY ./*.py /
 COPY ./run.sh /run.sh

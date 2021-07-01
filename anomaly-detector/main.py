@@ -25,6 +25,8 @@ from pymongo import MongoClient
 from AnomalyDetector import AnomalyDetector
 import redis
 from flask import Flask
+from prometheus_flask_exporter import PrometheusMetrics
+
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -32,6 +34,7 @@ handler = logging.StreamHandler(sys.stdout)
 handler.setLevel(logging.INFO)
 handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
 logger.addHandler(handler)
+
 
 if 'REDIS_HOST' in os.environ:
     redis_host = os.environ['REDIS_HOST']
@@ -89,9 +92,12 @@ else:
 service_ok = False
 records_processed = 0
 flask_app = Flask(__name__)
-
+metrics = PrometheusMetrics(flask_app)
+counter = metrics.info('evaluated_records', 'Number of evaluated records')
+counter.set(0)
 
 @flask_app.route('/healthcheck')
+@metrics.do_not_track()
 def healthcheck():
     if service_ok:
         return 'OK', 200
@@ -119,8 +125,9 @@ def run_trainer():
 
 
 def evaluate_message(redis_client, data):
-    global records_processed
+    global counter, records_processed
     anomaly_detector.evaluate(redis_client, data)
+    counter.inc()
     records_processed += 1
 
 

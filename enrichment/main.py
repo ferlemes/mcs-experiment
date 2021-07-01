@@ -26,6 +26,8 @@ import random
 import uuid
 from PathAggregator import PathAggregator
 from flask import Flask
+from prometheus_flask_exporter import PrometheusMetrics
+
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -82,16 +84,20 @@ else:
 service_ok = False
 records_processed = 0
 flask_app = Flask(__name__)
+metrics = PrometheusMetrics(flask_app)
+counter = metrics.info('processed_records', 'Number of processed records')
+counter.set(0)
+path_aggregator = PathAggregator()
 
 
 @flask_app.route('/healthcheck')
+@metrics.do_not_track()
 def healthcheck():
 	if service_ok:
 		return 'OK', 200
 	else:
 		return 'NOK', 400
 
-path_aggregator = PathAggregator()
 
 def publish_message(channel, data):
 	global service_ok
@@ -149,13 +155,16 @@ def run_queue_listener():
 			database = mongo_client[mongo_database]
 			collection = database[mongo_collection]
 			service_ok = True
+
 			def callback(channel, method, properties, body):
-				global records_processed
+				global counter, records_processed
 				data = json.loads(body)
 				data = enrich_data(data)
 				insert_into_database(collection, dict(data))
 				publish_message(channel, data)
+				counter.inc()
 				records_processed += 1
+
 			channel.basic_consume(queue=rabbitmq_queue, on_message_callback=callback, auto_ack=True)
 			channel.start_consuming()
 		except:
