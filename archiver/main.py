@@ -99,7 +99,7 @@ def run_archiver():
                 time.sleep(300)
         except:
             service_ok = False
-            logger.error("Failure archiving records!")
+            logger.exception("Failure archiving records!")
             time.sleep(15)
             raise
 

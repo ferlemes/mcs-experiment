@@ -87,6 +87,7 @@ else:
 
 
 service_ok = False
+records_processed = 0
 flask_app = Flask(__name__)
 
 
@@ -113,11 +114,14 @@ def run_trainer():
                 time.sleep(300)
         except:
             service_ok = False
+            logger.exception("Failure at training thread.")
             time.sleep(15)
 
 
 def evaluate_message(redis_client, data):
+    global records_processed
     anomaly_detector.evaluate(redis_client, data)
+    records_processed += 1
 
 
 def run_queue_listener():
@@ -146,13 +150,26 @@ def run_queue_listener():
             channel.start_consuming()
         except:
             service_ok = False
+            logger.exception("Failure evaluating records.")
             time.sleep(15)
+
+
+def run_report_records_processed():
+    global records_processed
+    while True:
+        if records_processed > 0:
+            count = records_processed
+            records_processed -= count
+            logger.info("%d records evaluated.", count)
+        time.sleep(60)
 
 
 if __name__ == "__main__":
     try:
         training_thread = threading.Thread(target=run_trainer)
         training_thread.start()
+        report_records_processed_thread = threading.Thread(target=run_report_records_processed)
+        report_records_processed_thread.start()
         queue_listener_thread=threading.Thread(target=run_queue_listener)
         queue_listener_thread.start()
         flask_app.run(host='0.0.0.0', port=80)

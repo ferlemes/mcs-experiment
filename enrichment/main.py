@@ -79,9 +79,10 @@ else:
 	sys.exit()
 
 
+service_ok = False
+records_processed = 0
 flask_app = Flask(__name__)
 
-service_ok = False
 
 @flask_app.route('/healthcheck')
 def healthcheck():
@@ -149,20 +150,36 @@ def run_queue_listener():
 			collection = database[mongo_collection]
 			service_ok = True
 			def callback(channel, method, properties, body):
+				global records_processed
 				data = json.loads(body)
 				data = enrich_data(data)
 				insert_into_database(collection, dict(data))
 				publish_message(channel, data)
+				records_processed += 1
 			channel.basic_consume(queue=rabbitmq_queue, on_message_callback=callback, auto_ack=True)
 			channel.start_consuming()
 		except:
 			service_ok = False
+			logger.exception("Failure enriching records.")
 			time.sleep(15)
+
+
+def run_report_records_processed():
+	global records_processed
+	while True:
+		if records_processed > 0:
+			count = records_processed
+			records_processed -= count
+			logger.info("%d records processed.", count)
+		time.sleep(60)
+
 
 if __name__ == "__main__":
 	try:
 		queue_listener_thread=threading.Thread(target=run_queue_listener)
 		queue_listener_thread.start()
+		report_records_processed_thread = threading.Thread(target=run_report_records_processed)
+		report_records_processed_thread.start()
 		flask_app.run(host='0.0.0.0', port=80)
 	except (IOError, SystemExit):
 		raise
