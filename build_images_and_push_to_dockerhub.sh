@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VERSION=1.0.11
+VERSION=1.0.12
 IMAGES="enrichment,anomaly-detector,archiver"
 
 echo ${IMAGES} | tr ',' '\n' | while read image_name; do

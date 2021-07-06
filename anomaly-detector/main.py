@@ -95,6 +95,8 @@ flask_app = Flask(__name__)
 metrics = PrometheusMetrics(flask_app)
 counter = metrics.info('evaluated_records', 'Number of evaluated records')
 counter.set(0)
+anomaly_counter = metrics.info('abnormal_records', 'Number of abnormal records')
+anomaly_counter.set(0)
 
 @flask_app.route('/healthcheck')
 @metrics.do_not_track()
@@ -126,7 +128,8 @@ def run_trainer():
 
 def evaluate_message(redis_client, data):
     global counter, records_processed
-    anomaly_detector.evaluate(redis_client, data)
+    if not anomaly_detector.evaluate(redis_client, data):
+        anomaly_counter.inc()
     counter.inc()
     records_processed += 1
 
@@ -167,7 +170,7 @@ def run_report_records_processed():
         if records_processed > 0:
             count = records_processed
             records_processed -= count
-            logger.info("%d records evaluated.", count)
+            logger.info("%d records evaluated during last minute.", count)
         time.sleep(60)
 
 

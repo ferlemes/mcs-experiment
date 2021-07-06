@@ -179,7 +179,7 @@ def run_report_records_processed():
 		if records_processed > 0:
 			count = records_processed
 			records_processed -= count
-			logger.info("%d records processed.", count)
+			logger.info("%d records processed during last minute.", count)
 		time.sleep(60)
 
 

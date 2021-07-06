@@ -61,7 +61,7 @@ class PathNode:
     def compress(self):
         if self.compressed:
             return
-        if len(self.child_nodes_by_string) > 100:
+        if len(self.child_nodes_by_string) > 1000:
             groups = [
                 { 'name': '<number>',              'regexp': re.compile(r"^[0-9]+$")                                                       },
                 { 'name': '<hexadecimal>',         'regexp': re.compile(r"^[0-9a-f]+$")                                                    },

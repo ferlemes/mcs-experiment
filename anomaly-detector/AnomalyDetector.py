@@ -21,6 +21,7 @@ from bson.son import SON
 import numpy as np
 from sklearn import svm
 import pickle
+import random
 
 logger = logging.getLogger()
 
@@ -49,13 +50,17 @@ class AnomalyDetector:
         for aggregate in aggregates:
             id = aggregate['_id']
             count = aggregate['count']
-            training_data = []
-            if id and count > 1000:
-                for http_record in mongo_collection.find({ "aggregated_http_path": id}):
+            if id and count > 10000:
+                sample_percentage = 10000 / count
+                chunk_range = int(sample_percentage * 65535)
+                chunk_start = random.randint(0, int((1 - sample_percentage) * 65535))
+                chunk_end = chunk_start + chunk_range
+                training_data = []
+                for http_record in mongo_collection.find({ "aggregated_http_path": id, "random": { "$gte": chunk_start, "$lte": chunk_end } }):
                     line = self.prepare_data(http_record)
                     training_data.append(line)
                 training_data = np.matrix(training_data)
-                logger.info("Training aggregated path %s", id)
+                logger.info("Training aggregated path '%s' with %d samples", id, training_data.shape[0])
                 model = svm.OneClassSVM(nu=0.001, kernel="rbf", gamma='scale')
                 model.fit(training_data)
                 redis_client.set(id, pickle.dumps(model))
@@ -70,6 +75,8 @@ class AnomalyDetector:
                 result = model.predict(data_to_evaluate)
                 if result[0] == -1:
                     logger.info("Abnormal data found: %s", str(data))
+                    return False
+        return True
 
     def prepare_data(self, data):
         processed_data = [
