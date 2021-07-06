@@ -43,7 +43,7 @@ class AnomalyDetector:
         logger.info("train_aggregates():")
         mongo_collection = mongo_database[mongo_collection]
         pipeline = [
-            {"$group": {"_id": "$aggregated_http_path", "count": {"$sum": 1}}},
+            {"$group": {"_id": "$aggregate_id", "count": {"$sum": 1}}},
             {"$sort": SON([("count", -1), ("_id", -1)])}
         ]
         aggregates = list(mongo_collection.aggregate(pipeline))
@@ -56,19 +56,19 @@ class AnomalyDetector:
                 chunk_start = random.randint(0, int((1 - sample_percentage) * 65535))
                 chunk_end = chunk_start + chunk_range
                 training_data = []
-                for http_record in mongo_collection.find({ "aggregated_http_path": id, "random": { "$gte": chunk_start, "$lte": chunk_end } }):
+                for http_record in mongo_collection.find({ "aggregate_id": id, "random": { "$gte": chunk_start, "$lte": chunk_end } }):
                     line = self.prepare_data(http_record)
                     training_data.append(line)
                 training_data = np.matrix(training_data)
                 logger.info("Training aggregated path '%s' with %d samples", id, training_data.shape[0])
                 model = svm.OneClassSVM(nu=0.001, kernel="rbf", gamma='scale')
                 model.fit(training_data)
-                redis_client.set(id, pickle.dumps(model))
+                redis_client.set(self.namespace + '/' + id, pickle.dumps(model))
 
     def evaluate(self, redis_client, data):
-        aggregated_http_path = data.get('aggregated_http_path')
-        if aggregated_http_path:
-            serialized_model = redis_client.get(aggregated_http_path)
+        aggregate_id = data.get('aggregate_id')
+        if aggregate_id:
+            serialized_model = redis_client.get(self.namespace + '/' + aggregate_id)
             if serialized_model:
                 model = pickle.loads(serialized_model)
                 data_to_evaluate = np.matrix(self.prepare_data(data))
