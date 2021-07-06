@@ -126,7 +126,12 @@ def insert_into_database(collection, data):
 
 
 def enrich_data(data):
-	aggregator, new_path = path_aggregator.get_path_aggregator(data['http_verb'] + data['http_path'])
+	preffix = ''
+	if data['http_host']:
+		preffix += '/' + data['http_host']
+	if data['http_verb']:
+		preffix += '/' + data['http_verb']
+	aggregator, new_path = path_aggregator.get_path_aggregator(preffix + data['http_path'])
 	data['aggregate_id'] = aggregator
 	data['aggregated_http_path'] = new_path
 	data['_id'] = str(uuid.uuid4())

@@ -109,6 +109,7 @@ class SyslogUDPHandler(socketserver.BaseRequestHandler):
 			timestamp_epoch = int(datetime.strptime(record[0], '%d/%b/%Y:%H:%M:%S.%f').timestamp())
 			haproxy_record = {
 				"timestamp":		timestamp_epoch,
+				"http_host":        record[2],
 				"labels":			[ record[2], record[3], "ec2-instance-id-foo", "awz-az-bar" ],
 				"http_protocol":	record[20],
 				"http_verb":		record[18],
