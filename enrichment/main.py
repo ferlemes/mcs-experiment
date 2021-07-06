@@ -127,10 +127,10 @@ def insert_into_database(collection, data):
 
 def enrich_data(data):
 	preffix = ''
-	if data['http_host']:
-		preffix += '/' + data['http_host']
-	if data['http_verb']:
-		preffix += '/' + data['http_verb']
+	if data.get('http_host'):
+		preffix += '/' + data.get('http_host')
+	if data.get('http_verb'):
+		preffix += '/' + data.get('http_verb')
 	aggregator, new_path = path_aggregator.get_path_aggregator(preffix + data['http_path'])
 	data['aggregate_id'] = aggregator
 	data['aggregated_http_path'] = new_path
