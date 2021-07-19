@@ -114,13 +114,14 @@ epoch_start = 0
 epoch_end = 0
 def archive_records(collection):
     global epoch_start, epoch_end
-    epoch_end = int(time.time()) - archive_records_after - 42
-    records = list(collection.find({ "$and":[ { "timestamp": { "$gte": epoch_start}}, { "timestamp": { "$lt": epoch_end}}] }))
+    epoch_end = int(time.time()) - archive_records_after
+    epoch_end = epoch_end - (epoch_end % 300) - 1
+    records = list(collection.find({ "timestamp": { "$gte": epoch_start, "$lt": epoch_end } }))
     if records:
         grouped_records = {}
         for record in records:
             timestamp = record.get('timestamp')
-            filename = time.strftime('%Y-%m-%d_%Hh%Mm.data', time.localtime(timestamp))
+            filename = time.strftime('%Y-%m-%d_%Hh%Mm.data', time.localtime(timestamp - (timestamp % 300)))
             if not grouped_records.get(filename):
                 grouped_records[filename] = []
             grouped_records.get(filename).append(json.dumps(record))
@@ -129,7 +130,7 @@ def archive_records(collection):
     else:
         logger.info("No records to archive.")
     if remove_archive_records:
-        collection.delete_many({ "$and":[ { "timestamp": { "$gte": epoch_start}}, { "timestamp": { "$lt": epoch_end}}] })
+        collection.delete_many({ "timestamp": { "$gte": epoch_start, "$lt": epoch_end } })
     epoch_start = epoch_end
 
 

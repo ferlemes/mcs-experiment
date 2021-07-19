@@ -109,6 +109,15 @@ def healthcheck():
 
 anomaly_detector = AnomalyDetector()
 
+
+# Create indexes
+client = MongoClient(mongo_url)
+database = client[mongo_database]
+collection = database[mongo_collection]
+collection.create_index([("aggregation_id", 1)])
+collection.create_index([("aggregation_id", 1), ("random", 1)])
+
+
 def run_trainer():
     global service_ok
     while True:

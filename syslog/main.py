@@ -114,9 +114,9 @@ class SyslogUDPHandler(socketserver.BaseRequestHandler):
 				"http_protocol":	record[20],
 				"http_verb":		record[18],
 				"http_path":		record[19],
+				"http_status":		record[9],
 				"bytes_sent":		0,
 				"bytes_received":	record[10],
-				"http_status":		record[9],
 				"duration":			record[7]
 			}
 			publish_message(haproxy_record)
