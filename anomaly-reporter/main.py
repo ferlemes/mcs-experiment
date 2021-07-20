@@ -23,6 +23,7 @@ from pymongo import MongoClient
 from bson.son import SON
 from flask import Flask
 from prometheus_flask_exporter import PrometheusMetrics
+from prometheus_client import Gauge
 
 
 logger = logging.getLogger()
@@ -64,6 +65,9 @@ records_processed = 0
 flask_app = Flask(__name__)
 metrics = PrometheusMetrics(flask_app)
 aggregated_http_path_dict = {}
+anomaly_gauge = Gauge('kubeowl_anomalies',
+                      'Percentage of anomalies for a given endpoint.',
+                      ['aggregate_id', 'aggregated_http_path'])
 metrics_dict = {}
 
 
@@ -111,7 +115,7 @@ def report_anomaly_rate(anomalies_to_report):
         logger.info('Anomaly detected for aggregate_id=%s (aggregated_http_path %s) with %.2f%%', id, path, percentage)
         metric = metrics_dict.get(id)
         if not metric:
-            metric = metrics.info("kubeowl_anomaly" + id.replace('-', '_'), 'Aggregated endpoint ' + path, aggregate_id=id, aggregated_http_path=path)
+            metric = anomaly_gauge.labels(aggregate_id=id, aggregated_http_path=path)
             metrics_dict[id] = metric
         metric.set(percentage)
 
