@@ -96,14 +96,24 @@ def get_aggregated_http_path(id, collection):
         aggregated_http_path_dict[id] = result
     return result
 
-def report_anomaly_rate(id, path, rate):
-    percentage = round(rate * 100, 2)
-    logger.info('Anomaly detected for aggregate_id=%s (aggregated_http_path %s) with %.2f%%', id, path, percentage)
-    metric = metrics_dict.get(id)
-    if not metric:
-        metric = metrics.info("aggregate_id_" + id.replace('-', '_'), 'Aggregated endpoint ' + path, aggregate_id=id, aggregated_http_path=path)
-        metrics_dict[id] = metric
-    metric.set(percentage)
+def report_anomaly_rate(anomalies_to_report):
+
+    # Set to zero metrics that were not sent to update
+    for key, value in metrics_dict.items():
+        if not anomalies_to_report.get(key):
+            value.set(0)
+
+    # Update anomalies values
+    for id, value in anomalies_to_report.items():
+        path = value.get('path')
+        rate = value.get('rate')
+        percentage = round(rate * 100, 2)
+        logger.info('Anomaly detected for aggregate_id=%s (aggregated_http_path %s) with %.2f%%', id, path, percentage)
+        metric = metrics_dict.get(id)
+        if not metric:
+            metric = metrics.info("kubeowl_anomaly" + id.replace('-', '_'), 'Aggregated endpoint ' + path, aggregate_id=id, aggregated_http_path=path)
+            metrics_dict[id] = metric
+        metric.set(percentage)
 
 
 def run_reporter():
@@ -128,11 +138,17 @@ def run_reporter():
                 http_requests_aggregates_dict = {}
                 for http_requests_aggregate in http_requests_aggregates:
                     http_requests_aggregates_dict[http_requests_aggregate.get("_id")] = http_requests_aggregate.get("count")
+                anomalies_to_report = {}
                 for anomalies_aggregate in anomalies_aggregates:
                     aggregate_id = anomalies_aggregate.get("_id")
                     count = anomalies_aggregate.get("count")
-                    rate = count / http_requests_aggregates_dict.get(aggregate_id)
-                    report_anomaly_rate(aggregate_id, get_aggregated_http_path(aggregate_id, anomalies_collection), rate)
+                    if count > 10:
+                        rate = count / http_requests_aggregates_dict.get(aggregate_id)
+                        anomalies_to_report[aggregate_id] = {
+                            'path': get_aggregated_http_path(aggregate_id, anomalies_collection),
+                            'rate': rate
+                        }
+                report_anomaly_rate(anomalies_to_report)
                 window_start = window_end
                 window_end = window_start + 60
                 nap_time = window_end - int(time.time())
