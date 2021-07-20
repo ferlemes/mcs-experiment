@@ -99,7 +99,7 @@ def report_anomaly_rate(id, path, rate):
     logger.info('Anomaly detected for aggregate_id=%s (aggregated_http_path %s) with %.2f%%', id, path, percentage)
     metric = metrics_dict.get(id)
     if not metric:
-        metric = metrics.info('id', 'Aggregated endpoint ' + path)
+        metric = metrics.info("aggregate_id_" + id, 'Aggregated endpoint ' + path, aggregate_id=id, aggregated_http_path=path)
         metrics_dict[id] = metric
     metric.set(percentage)
 
