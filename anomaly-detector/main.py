@@ -116,8 +116,8 @@ anomaly_detector = AnomalyDetector()
 client = MongoClient(mongo_url)
 database = client[mongo_database]
 collection = database[mongo_http_records]
-collection.create_index([("aggregation_id", 1)])
-collection.create_index([("aggregation_id", 1), ("random", 1)])
+collection.create_index([("aggregate_id", 1)])
+collection.create_index([("aggregate_id", 1), ("random", 1)])
 
 
 def run_trainer():
