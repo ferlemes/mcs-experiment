@@ -81,8 +81,10 @@ client = MongoClient(mongo_url)
 database = client[mongo_database]
 http_records_collection = database[mongo_http_records]
 http_records_collection.create_index([("aggregate_id", 1), ("timestamp", 1)])
+http_records_collection.create_index([("timestamp", 1)])
 anomalies_collection = database[mongo_anomalies]
 anomalies_collection.create_index([("aggregate_id", 1)])
+anomalies_collection.create_index([("timestamp", 1)])
 anomalies_collection.create_index([("aggregate_id", 1), ("timestamp", 1)])
 
 
@@ -133,7 +135,9 @@ def run_reporter():
                     report_anomaly_rate(aggregate_id, get_aggregated_http_path(aggregate_id, anomalies_collection), rate)
                 window_start = window_end
                 window_end = window_start + 60
-                time.sleep(window_end - int(time.time()))
+                nap_time = window_end - int(time.time())
+                if nap_time > 0:
+                    time.sleep(nap_time)
         except:
             service_ok = False
             logger.exception("Failure at reporter thread.")
