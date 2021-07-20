@@ -73,7 +73,6 @@ class AnomalyDetector:
                 data_to_evaluate = np.matrix(self.prepare_data(data))
                 result = model.predict(data_to_evaluate)
                 if result[0] == -1:
-                    logger.info("Abnormal data found: %s", str(data))
                     return True
         return False
 
