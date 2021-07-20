@@ -88,7 +88,6 @@ services:
       dockerfile: Dockerfile
     environment:
       - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_QUEUE=http_records
       - IGNORE_PATHS=/ping
     links:
       - rabbitmq
@@ -105,11 +104,7 @@ services:
       retries: 3
     environment:
       - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_QUEUE=http_records
-      - RABBITMQ_EXCHANGE=http_enriched_records
       - MONGO_URL=mongodb://mongodb:27017/
-      - MONGO_DATABASE=kubeowl
-      - MONGO_COLLECTION=http_records
     links:
       - mongodb
       - rabbitmq
@@ -135,10 +130,7 @@ services:
       retries: 3
     environment:
       - MONGO_URL=mongodb://mongodb:27017/
-      - MONGO_DATABASE=kubeowl
       - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_EXCHANGE=http_enriched_records
-      - RABBITMQ_QUEUE=evaluate_response_time
       - REDIS_HOST=redis
     links:
       - mongodb
@@ -160,8 +152,6 @@ services:
       retries: 3
     environment:
       - MONGO_URL=mongodb://mongodb:27017/
-      - MONGO_DATABASE=kubeowl
-      - MONGO_COLLECTION=http_records
     links:
       - mongodb
   archiver:
@@ -177,8 +167,6 @@ services:
       retries: 3
     environment:
       - MONGO_URL=mongodb://mongodb:27017/
-      - MONGO_DATABASE=kubeowl
-      - MONGO_COLLECTION=http_records
       - ARCHIVE_RECORDS_AFTER=300
       - REMOVE_ARCHIVED_RECORDS=false
       - ARCHIVE_FOLDER=/data/

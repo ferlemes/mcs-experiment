@@ -55,10 +55,9 @@ else:
 
 if 'MONGO_DATABASE' in os.environ:
     mongo_database = os.environ['MONGO_DATABASE']
-    logger.info('Using mongo database: %s', mongo_database)
 else:
-    logger.fatal('Missing MONGO_DATABASE environment variable.')
-    sys.exit()
+    mongo_database = 'kubeowl'
+logger.info('Using mongo database: %s', mongo_database)
 
 if 'MONGO_HTTP_RECORDS' in os.environ:
     mongo_http_records = os.environ['MONGO_HTTP_RECORDS']
@@ -81,17 +80,15 @@ else:
 
 if 'RABBITMQ_EXCHANGE' in os.environ:
     rabbitmq_exchange = os.environ['RABBITMQ_EXCHANGE']
-    logger.info('RabbitMQ exchange: %s', rabbitmq_exchange)
 else:
-    logger.fatal('Missing RABBITMQ_EXCHANGE environment variable.')
-    sys.exit()
+    rabbitmq_exchange = "http_enriched_records"
+logger.info('RabbitMQ exchange: %s', rabbitmq_exchange)
 
 if 'RABBITMQ_QUEUE' in os.environ:
     rabbitmq_queue = os.environ['RABBITMQ_QUEUE']
-    logger.info('RabbitMQ queue: %s', rabbitmq_queue)
 else:
-    logger.fatal('Missing RABBITMQ_QUEUE environment variable.')
-    sys.exit()
+    rabbitmq_queue = 'evaluate_response_time'
+logger.info('RabbitMQ queue: %s', rabbitmq_queue)
 
 
 service_ok = False

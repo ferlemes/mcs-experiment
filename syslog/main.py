@@ -57,10 +57,9 @@ else:
 
 if 'RABBITMQ_QUEUE' in os.environ:
 	rabbitmq_queue = os.environ['RABBITMQ_QUEUE']
-	logger.info('RabbitMQ queue: %s', rabbitmq_queue)
 else:
-	logger.fatal('Missing RABBITMQ_QUEUE environment variable.')
-	sys.exit()
+	rabbitmq_queue = 'http_records'
+logger.info('RabbitMQ queue: %s', rabbitmq_queue)
 
 ignore_paths = []
 if 'IGNORE_PATHS' in os.environ:

@@ -42,17 +42,16 @@ else:
 
 if 'MONGO_DATABASE' in os.environ:
     mongo_database = os.environ['MONGO_DATABASE']
-    logger.info('Using mongo database: %s', mongo_database)
 else:
-    logger.fatal('Missing MONGO_DATABASE environment variable.')
-    sys.exit()
+    mongo_database = 'kubeowl'
+logger.info('Using mongo database: %s', mongo_database)
 
-if 'MONGO_COLLECTION' in os.environ:
-    mongo_collection = os.environ['MONGO_COLLECTION']
-    logger.info('Using mongo collection: %s', mongo_collection)
+if 'MONGO_HTTP_RECORDS' in os.environ:
+    mongo_http_records = os.environ['MONGO_HTTP_RECORDS']
 else:
-    logger.fatal('Missing MONGO_COLLECTION environment variable.')
-    sys.exit()
+    mongo_http_records = 'http_records'
+logger.info('HTTP records collection is: %s', mongo_http_records)
+
 
 if 'ARCHIVE_FOLDER' in os.environ:
     archive_folder = os.environ['ARCHIVE_FOLDER']
@@ -97,7 +96,7 @@ def run_archiver():
         try:
             client = MongoClient(mongo_url)
             database = client[mongo_database]
-            collection = database[mongo_collection]
+            collection = database[mongo_http_records]
             collection.find_one()
             service_ok = True
             while True:
