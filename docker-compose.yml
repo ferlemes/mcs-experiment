@@ -139,6 +139,21 @@ services:
     deploy:
       mode: replicated
       replicas: 1
+  anomaly-reporter:
+    container_name: anomaly-reporter
+    image: anomaly-reporter
+    build:
+      context: anomaly-reporter
+      dockerfile: Dockerfile
+    healthcheck:
+      test: curl -f http://localhost/healthcheck || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    environment:
+      - MONGO_URL=mongodb://mongodb:27017/
+    links:
+      - mongodb
   tools:
     container_name: tools
     image: tools
