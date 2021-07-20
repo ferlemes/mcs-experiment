@@ -31,22 +31,21 @@ class AnomalyDetector:
         logger.info('Initializing anomaly detector.')
         self.namespace = 'anomaly-detector'
 
-    def training_thread(self, mongo_database, mongo_collection, redis_client):
+    def training_thread(self, http_records_collection, redis_client):
         try:
             with redis_client.lock(self.namespace + "/train_mutex", blocking_timeout=5):
-                self.do_train(mongo_database, mongo_collection, redis_client)
+                self.do_train(http_records_collection, redis_client)
         except redis.exceptions.LockError:
             logger.info("Could not acquire lock for training.")
             time.sleep(15)
 
-    def do_train(self, mongo_database, mongo_collection, redis_client):
+    def do_train(self, http_records_collection, redis_client):
         logger.info("train_aggregates():")
-        mongo_collection = mongo_database[mongo_collection]
         pipeline = [
             {"$group": {"_id": "$aggregate_id", "count": {"$sum": 1}}},
             {"$sort": SON([("count", -1), ("_id", -1)])}
         ]
-        aggregates = list(mongo_collection.aggregate(pipeline))
+        aggregates = list(http_records_collection.aggregate(pipeline))
         for aggregate in aggregates:
             id = aggregate['_id']
             count = aggregate['count']
@@ -56,7 +55,7 @@ class AnomalyDetector:
                 chunk_start = random.randint(0, int((1 - sample_percentage) * 65535))
                 chunk_end = chunk_start + chunk_range
                 training_data = []
-                for http_record in mongo_collection.find({ "aggregate_id": id, "random": { "$gte": chunk_start, "$lte": chunk_end } }):
+                for http_record in http_records_collection.find({ "aggregate_id": id, "random": { "$gte": chunk_start, "$lte": chunk_end } }):
                     line = self.prepare_data(http_record)
                     training_data.append(line)
                 training_data = np.matrix(training_data)
@@ -65,7 +64,7 @@ class AnomalyDetector:
                 model.fit(training_data)
                 redis_client.set(self.namespace + '/' + id, pickle.dumps(model))
 
-    def evaluate(self, redis_client, data):
+    def is_anomalous(self, redis_client, data):
         aggregate_id = data.get('aggregate_id')
         if aggregate_id:
             serialized_model = redis_client.get(self.namespace + '/' + aggregate_id)
@@ -75,8 +74,8 @@ class AnomalyDetector:
                 result = model.predict(data_to_evaluate)
                 if result[0] == -1:
                     logger.info("Abnormal data found: %s", str(data))
-                    return False
-        return True
+                    return True
+        return False
 
     def prepare_data(self, data):
         processed_data = [

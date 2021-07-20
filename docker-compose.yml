@@ -136,7 +136,6 @@ services:
     environment:
       - MONGO_URL=mongodb://mongodb:27017/
       - MONGO_DATABASE=kubeowl
-      - MONGO_COLLECTION=http_records
       - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_EXCHANGE=http_enriched_records
       - RABBITMQ_QUEUE=evaluate_response_time

@@ -60,12 +60,17 @@ else:
     logger.fatal('Missing MONGO_DATABASE environment variable.')
     sys.exit()
 
-if 'MONGO_COLLECTION' in os.environ:
-    mongo_collection = os.environ['MONGO_COLLECTION']
-    logger.info('Using mongo collection: %s', mongo_collection)
+if 'MONGO_HTTP_RECORDS' in os.environ:
+    mongo_http_records = os.environ['MONGO_HTTP_RECORDS']
 else:
-    logger.fatal('Missing MONGO_COLLECTION environment variable.')
-    sys.exit()
+    mongo_http_records = 'http_records'
+logger.info('HTTP records collection is: %s', mongo_http_records)
+
+if 'MONGO_ANOMALIES' in os.environ:
+    mongo_anomalies = os.environ['MONGO_ANOMALIES']
+else:
+    mongo_anomalies = "anomalies"
+logger.info('Anomalies collection is: %s', mongo_anomalies)
 
 if 'RABBITMQ_HOST' in os.environ:
     rabbitmq_host = os.environ['RABBITMQ_HOST']
@@ -113,7 +118,7 @@ anomaly_detector = AnomalyDetector()
 # Create indexes
 client = MongoClient(mongo_url)
 database = client[mongo_database]
-collection = database[mongo_collection]
+collection = database[mongo_http_records]
 collection.create_index([("aggregation_id", 1)])
 collection.create_index([("aggregation_id", 1), ("random", 1)])
 
@@ -124,10 +129,11 @@ def run_trainer():
         try:
             client = MongoClient(mongo_url)
             database = client[mongo_database]
+            http_records_collection = database[mongo_http_records]
             redis_client = redis.Redis(host=redis_host, port=int(redis_port), db=0)
             service_ok = True
             while True:
-                anomaly_detector.training_thread(database, mongo_collection, redis_client)
+                anomaly_detector.training_thread(http_records_collection, redis_client)
                 time.sleep(300)
         except:
             service_ok = False
@@ -135,10 +141,11 @@ def run_trainer():
             time.sleep(15)
 
 
-def evaluate_message(redis_client, data):
+def evaluate_message(anomalies_collection, redis_client, data):
     global counter, records_processed
-    if not anomaly_detector.evaluate(redis_client, data):
+    if anomaly_detector.is_anomalous(redis_client, data):
         anomaly_counter.inc()
+        anomalies_collection.insert_one(data)
     counter.inc()
     records_processed += 1
 
@@ -160,10 +167,13 @@ def run_queue_listener():
                 time.sleep(15)
 
         try:
+            client = MongoClient(mongo_url)
+            database = client[mongo_database]
+            anomalies_collection = database[mongo_anomalies]
             redis_client = redis.Redis(host=redis_host, port=int(redis_port), db=0)
             def callback(channel, method, properties, body):
                 data = json.loads(body)
-                evaluate_message(redis_client, data)
+                evaluate_message(anomalies_collection, redis_client, data)
             channel.basic_consume(queue=rabbitmq_queue, on_message_callback=callback, auto_ack=True)
             service_ok = True
             channel.start_consuming()
