@@ -131,7 +131,7 @@ def run_trainer():
             service_ok = True
             while True:
                 anomaly_detector.training_thread(http_records_collection, redis_client)
-                time.sleep(300)
+                time.sleep(3600)
         except:
             service_ok = False
             logger.exception("Failure at training thread.")
