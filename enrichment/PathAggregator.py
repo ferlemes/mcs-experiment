@@ -28,6 +28,7 @@ class PathAggregator:
 
     def __init__(self):
         self.root = PathNode('')
+        self.counter = 0
 
     def get_path_aggregator(self, http_path):
         path = http_path + '?'
@@ -38,7 +39,10 @@ class PathAggregator:
         current_node = self.root
         for resource_part in resource.split('/'):
             current_node = current_node.get_child(resource_part)
-            current_node.compress()
+            self.counter += 1
+        if self.counter > 100:
+            self.root.compress()
+            self.counter = 0
         return current_node.get_uuid(), current_node.get_name()
 
 class PathNode:
@@ -59,6 +63,10 @@ class PathNode:
         return self.child_nodes_by_string[node_name]
 
     def compress(self):
+        for node in self.child_nodes_by_string.values():
+            node.compress()
+        for node in self.child_nodes_by_regexp.values():
+            node.compress()
         if self.compressed:
             return
         if len(self.child_nodes_by_string) > 1000:
@@ -81,11 +89,12 @@ class PathNode:
                 if use_group:
                     new_node = PathNode(self.name + '/' + group_name)
                     self.child_nodes_by_regexp[group_regexp] = new_node
-                    for node_name, each_node in self.child_nodes_by_string.items():
+                    for each_node in self.child_nodes_by_string.values():
                         new_node.merge(each_node)
                     self.child_nodes_by_string.clear()
                     self.compressed = True
                     break
+
 
     def merge(self, another_node):
         for node_name, node in another_node.child_nodes_by_string.items():
@@ -93,16 +102,22 @@ class PathNode:
                 self.child_nodes_by_string[node_name].merge(node)
                 self.child_nodes_by_string[node_name].compress()
             else:
-                self.child_nodes_by_string[node_name] = node
+                new_node = PathNode(self.name + '/' + node_name)
+                self.child_nodes_by_string[node_name] = new_node
+                new_node.merge(node)
         for regexp, node in another_node.child_nodes_by_regexp.items():
             if regexp in self.child_nodes_by_regexp:
                 self.child_nodes_by_regexp[regexp].merge(node)
                 self.child_nodes_by_regexp[regexp].compress()
             else:
-                self.child_nodes_by_regexp[regexp] = node
+                new_node = PathNode(self.name + '/' + node_name)
+                self.child_nodes_by_regexp[regexp] = new_node
+                new_node.merge(node)
+
 
     def get_uuid(self):
         return self.uuid
+
 
     def get_name(self):
         return self.name

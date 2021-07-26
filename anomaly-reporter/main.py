@@ -146,7 +146,7 @@ def run_reporter():
                 for anomalies_aggregate in anomalies_aggregates:
                     aggregate_id = anomalies_aggregate.get("_id")
                     count = anomalies_aggregate.get("count")
-                    if count > 10:
+                    if count > 5:
                         rate = count / http_requests_aggregates_dict.get(aggregate_id)
                         anomalies_to_report[aggregate_id] = {
                             'path': get_aggregated_http_path(aggregate_id, anomalies_collection),
