@@ -17,62 +17,7 @@
 version: '3'
 services:
   #
-  # Application
-  #
-  mysql:
-    container_name: mysql
-    image: mysql:latest
-    environment:
-      - MYSQL_ROOT_PASSWORD=abc123
-      - MYSQL_DATABASE=sample-application
-      - MYSQL_USER=user
-      - MYSQL_PASSWORD=abc123
-  application:
-    container_name: application
-    image: application
-    build:
-      context: application
-      dockerfile: Dockerfile
-    environment:
-      - MYSQL_DATABASE=sample-application
-      - MYSQL_USER=user
-      - MYSQL_PASSWORD=abc123
-    links:
-      - mysql
-    deploy:
-      resources:
-        limits:
-          cpus: '0.7'
-          memory: 1024M
-  #
-  # Interceptor
-  #
-  haproxy:
-    container_name: haproxy
-    image: haproxy
-    build:
-      context: haproxy
-      dockerfile: Dockerfile
-    ports:
-      - "8080:8080"
-    links:
-      - application
-      - syslog
-  #
-  # Load Generator
-  #
-  jmeter:
-    container_name: jmeter
-    image: jmeter
-    build:
-      context: jmeter
-      dockerfile: Dockerfile
-    links:
-      - haproxy
-#    volumes:
-#      - ./jmeter_results:/results
-  #
-  # Kube Owl
+  # Basic resources for microservice integration
   #
   rabbitmq:
     container_name: rabbitmq
@@ -80,17 +25,32 @@ services:
     ports:
       - "5672:5672"
       - "15672:15672"
-  syslog:
-    container_name: syslog
-    image: syslog
+  mongodb:
+    container_name: mongodb
+    image: mongo:4.0
+    ports:
+      - "27017:27017"
+  redis:
+    container_name: redis
+    image: redis:6
+    ports:
+      - "6379:6379"
+  #
+  # Kube Owl
+  #
+  log-replay:
+    container_name: log-replay
+    image: log-replay
     build:
-      context: syslog
+      context: log-replay
       dockerfile: Dockerfile
     environment:
       - RABBITMQ_HOST=rabbitmq
-      - IGNORE_PATHS=/ping
+      - REPLAY_FILES=/input/anonymous.data
     links:
       - rabbitmq
+    volumes:
+      - ./log-replay/input:/input
   enrichment:
     container_name: enrichment
     image: enrichment
@@ -108,16 +68,6 @@ services:
     links:
       - mongodb
       - rabbitmq
-  mongodb:
-    container_name: mongodb
-    image: mongo:4.0
-    ports:
-      - "27017:27017"
-  redis:
-    container_name: redis
-    image: redis:6
-    ports:
-      - "6379:6379"
   anomaly-detector:
     image: anomaly-detector
     build:
@@ -169,6 +119,8 @@ services:
       - MONGO_URL=mongodb://mongodb:27017/
     links:
       - mongodb
+    volumes:
+      - ./tools/output:/output
   archiver:
     container_name: archiver
     image: archiver
