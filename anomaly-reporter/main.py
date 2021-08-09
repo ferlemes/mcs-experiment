@@ -123,39 +123,42 @@ def report_anomaly_rate(anomalies_to_report):
 def run_reporter():
     global service_ok
     while True:
-        window_start = int(time.time()) - (int(time.time()) % 60)
-        window_end = window_start + 60
+        next_execution_timestamp = int(time.time()) - (int(time.time()) % 60)
         try:
+            window_sizes = [60, 180, 300, 600, 900, 1800, 3600]
             client = MongoClient(mongo_url)
             database = client[mongo_database]
             anomalies_collection = database[mongo_anomalies]
             http_records_collection = database[mongo_http_records]
             service_ok = True
             while True:
-                pipeline = [
-                    { "$match": { "timestamp": { "$gte": window_start, "$lt": window_end } } },
-                    { "$group": {"_id": "$aggregate_id", "count": {"$sum": 1} } },
-                    { "$sort": SON([ ("count", -1), ("_id", -1) ]) }
-                ]
-                anomalies_aggregates = list(anomalies_collection.aggregate(pipeline))
-                http_requests_aggregates = list(http_records_collection.aggregate(pipeline))
-                http_requests_aggregates_dict = {}
-                for http_requests_aggregate in http_requests_aggregates:
-                    http_requests_aggregates_dict[http_requests_aggregate.get("_id")] = http_requests_aggregate.get("count")
+                logger.info('Starting evaluating anomalies.')
                 anomalies_to_report = {}
-                for anomalies_aggregate in anomalies_aggregates:
-                    aggregate_id = anomalies_aggregate.get("_id")
-                    count = anomalies_aggregate.get("count")
-                    if count > 5:
-                        rate = count / http_requests_aggregates_dict.get(aggregate_id)
-                        anomalies_to_report[aggregate_id] = {
-                            'path': get_aggregated_http_path(aggregate_id, anomalies_collection),
-                            'rate': rate
-                        }
+                for window_size in window_sizes:
+                    now = time.time()
+                    pipeline = [
+                        { "$match": { "timestamp": { "$gte": now - window_size, "$lt": now } } },
+                        { "$group": {"_id": "$aggregate_id", "count": {"$sum": 1} } },
+                        { "$sort": SON([ ("count", -1), ("_id", -1) ]) }
+                    ]
+                    anomalies_aggregates = list(anomalies_collection.aggregate(pipeline))
+                    http_requests_aggregates = list(http_records_collection.aggregate(pipeline))
+                    http_requests_aggregates_dict = {}
+                    for http_requests_aggregate in http_requests_aggregates:
+                        http_requests_aggregates_dict[http_requests_aggregate.get("_id")] = http_requests_aggregate.get("count")
+                    for anomalies_aggregate in anomalies_aggregates:
+                        aggregate_id = anomalies_aggregate.get("_id")
+                        count = anomalies_aggregate.get("count")
+                        if not anomalies_to_report.get(aggregate_id):
+                            rate = count / http_requests_aggregates_dict.get(aggregate_id)
+                            anomalies_to_report[aggregate_id] = {
+                                'path': get_aggregated_http_path(aggregate_id, anomalies_collection),
+                                'rate': rate
+                            }
+                logger.info('Done evaluating anomalies.')
                 report_anomaly_rate(anomalies_to_report)
-                window_start = window_end
-                window_end = window_start + 60
-                nap_time = window_end - int(time.time())
+                next_execution_timestamp += 60
+                nap_time = next_execution_timestamp - int(time.time())
                 if nap_time > 0:
                     time.sleep(nap_time)
         except:
