@@ -109,7 +109,7 @@ if __name__ == "__main__":
 					while time.time() - offset < timestamp:
 						time.sleep(0.1)
 					record = {
-						"timestamp":		time.time(),
+						"timestamp":		int(time.time()),
 						"http_host":        data.get('http_host'),
 						"labels":			data.get('labels'),
 						"http_protocol":	data.get('http_protocol'),

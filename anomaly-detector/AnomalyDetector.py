@@ -60,7 +60,7 @@ class AnomalyDetector:
                     training_data.append(line)
                 training_data = np.matrix(training_data)
                 logger.info("Training aggregated path '%s' with %d samples", id, training_data.shape[0])
-                model = svm.OneClassSVM(nu=0.001, kernel="rbf", gamma='scale')
+                model = svm.OneClassSVM(nu=0.01, kernel="rbf", gamma='scale')
                 model.fit(training_data)
                 redis_client.set(self.namespace + '/' + id, pickle.dumps(model))
 

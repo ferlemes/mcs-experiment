@@ -65,26 +65,42 @@ except:
 current_file = None
 current_filename = ''
 current_count = 0
+arguments = sys.argv
+if len(arguments) > 1:
+    start = int(arguments[1])
+    start = start - (start  % 3600)
+else:
+    logger.fatal('Missing start timestamp.')
+    sys.exit()
+if len(arguments) > 2:
+    end = int(arguments[2])
+    if end % 3600 > 0:
+        end = end - (end % 3600) + 3600
+else:
+    logger.fatal('Missing end timestamp.')
+    sys.exit()
 try:
-    for each_record in collection.find().sort([('timestamp', 1)]):
-        timestamp = each_record.get('timestamp')
-        filename = time.strftime('%Y-%m-%d_%Hh%Mm.data', time.localtime(timestamp - (timestamp % 300)))
-        if filename != current_filename:
-            current_filename = filename
-            if current_file:
-                logger.info('%d records added.', current_count)
-                current_file.close()
-            logger.info('Writing to file: %s', filename)
-            current_file = open(filename, 'w')
-            current_count = 0
-        current_file.write(json.dumps(each_record) + '\n')
-        current_count += 1
+    window_start = start
+    window_end = window_start + 3600
+    while window_start < end:
+        count = 0
+        current_file = None
+        for each_record in collection.find({ "timestamp": { "$gte": window_start, "$lt": window_end } }).sort([('timestamp', 1)]):
+            if not current_file:
+                filename = time.strftime('%Y-%m-%d_%Hh%Mm.data', time.localtime(window_start))
+                logger.info('Writing to file: %s', filename)
+                current_file = open(filename, 'w')
+            current_file.write(json.dumps(each_record) + '\n')
+            count += 1
+        if count > 0:
+            logger.info('%d records added.', count)
+        if current_file:
+            current_file.close()
+            current_file = None
+        window_start += 3600
+        window_end += 3600
 
 except:
     logger.exception('Failure exporting records.')
     sys.exit()
 
-# Close current file if defined.
-if current_file:
-    logger.info('%d records added.', current_count)
-    current_file.close()
