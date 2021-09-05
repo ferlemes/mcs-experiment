@@ -27,6 +27,7 @@ import re
 import uuid
 import random
 import gzip
+from functools import lru_cache
 
 
 logger = logging.getLogger()
@@ -63,22 +64,6 @@ with open("/tmp/words_list.txt", 'r') as file:
 if not words_list:
     logger.fatal('Missing words dictionary from /tmp/words_list.txt.')
     sys.exit()
-
-anonymous_dict = {}
-def get_anonymous(word):
-    anonymous = anonymous_dict.get(word)
-    if not anonymous:
-        if re.compile(r"^[0-9]+$").search(word):
-            anonymous = str(random.randint(1000000000, 9999999999))
-        elif re.compile(r"^[0-9a-f]+$").search(word):
-            anonymous = hex(random.randint(1000000000, 9999999999))[2:]
-        elif re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$").search(word):
-            anonymous = str(uuid.uuid4())
-        else:
-            anonymous = words_list[0]
-            del words_list[0]
-        anonymous_dict[word] = anonymous
-    return anonymous
 
 
 #
@@ -119,11 +104,32 @@ translator = PathTranslator()
 try:
     client = MongoClient(mongo_url)
     database = client[mongo_database]
-    collection = database[mongo_http_records]
-    collection.create_index([('timestamp', 1)])
+    http_records_collection = database[mongo_http_records]
+    http_records_collection.create_index([('timestamp', 1)])
+    anonymizer_collection =  database['anonymizer']
+    anonymizer_collection.create_index([('key', 1)])
 except:
     logger.exception('Failure creating index.')
     sys.exit()
+
+
+@lru_cache(maxsize=256)
+def get_anonymous(word):
+    anonymous = anonymizer_collection.find_one({ 'key': word })
+    if anonymous:
+        anonymous = anonymous.get('value')
+    if not anonymous:
+        if re.compile(r"^[0-9]+$").search(word):
+            anonymous = str(random.randint(1000000000, 9999999999))
+        elif re.compile(r"^[0-9a-f]+$").search(word):
+            anonymous = hex(random.randint(1000000000, 9999999999))[2:]
+        elif re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$").search(word):
+            anonymous = str(uuid.uuid4())
+        else:
+            anonymous = words_list[0]
+            del words_list[0]
+        anonymizer_collection.insert_one({ 'key': word, 'value': anonymous })
+    return anonymous
 
 
 current_file = None
@@ -148,7 +154,7 @@ try:
     while window_start < end:
         count = 0
         current_file = None
-        for each_record in collection.find({ "timestamp": { "$gte": window_start, "$lt": window_end } }).sort([('timestamp', 1)]):
+        for each_record in http_records_collection.find({"timestamp": {"$gte": window_start, "$lt": window_end}}).sort([('timestamp', 1)]):
             if not current_file:
                 filename = time.strftime('%Y-%m-%d_%Hh%Mm.data.gz', time.localtime(window_start))
                 logger.info('Writing to file: %s', filename)

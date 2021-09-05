@@ -16,6 +16,7 @@
 
 import logging
 import redis
+import redis_lock
 import time
 from bson.son import SON
 import numpy as np
@@ -33,7 +34,7 @@ class AnomalyDetector:
 
     def training_thread(self, http_records_collection, redis_client):
         try:
-            with redis_client.lock(self.namespace + "/train_mutex", blocking_timeout=5):
+            with redis_lock.Lock(redis_client, name=self.namespace + "/train_mutex", expire=1800, auto_renewal=True):
                 self.do_train(http_records_collection, redis_client)
         except redis.exceptions.LockError:
             logger.info("Could not acquire lock for training.")

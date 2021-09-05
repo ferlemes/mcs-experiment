@@ -16,7 +16,7 @@
 
 FROM python:3
 
-RUN pip install --no-cache-dir redis pika pymongo numpy sklearn Flask prometheus-flask-exporter
+RUN pip install --no-cache-dir redis pika pymongo numpy sklearn Flask prometheus-flask-exporter python-redis-lock
 
 COPY ./*.py /
 COPY ./run.sh /run.sh
