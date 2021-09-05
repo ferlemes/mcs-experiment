@@ -125,7 +125,7 @@ def run_reporter():
     while True:
         next_execution_timestamp = int(time.time()) - (int(time.time()) % 60)
         try:
-            window_sizes = [60, 180, 300, 600, 900, 1800, 3600]
+            window_sizes = [180, 240, 300]
             client = MongoClient(mongo_url)
             database = client[mongo_database]
             anomalies_collection = database[mongo_anomalies]
@@ -149,7 +149,7 @@ def run_reporter():
                     for anomalies_aggregate in anomalies_aggregates:
                         aggregate_id = anomalies_aggregate.get("_id")
                         count = anomalies_aggregate.get("count")
-                        if not anomalies_to_report.get(aggregate_id):
+                        if count > 5 and not anomalies_to_report.get(aggregate_id):
                             rate = count / http_requests_aggregates_dict.get(aggregate_id)
                             anomalies_to_report[aggregate_id] = {
                                 'path': get_aggregated_http_path(aggregate_id, anomalies_collection),

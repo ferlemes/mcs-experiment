@@ -23,6 +23,7 @@ import logging
 from pymongo import MongoClient
 import time
 import json
+import gzip
 
 
 logger = logging.getLogger()
@@ -87,9 +88,9 @@ try:
         current_file = None
         for each_record in collection.find({ "timestamp": { "$gte": window_start, "$lt": window_end } }).sort([('timestamp', 1)]):
             if not current_file:
-                filename = time.strftime('%Y-%m-%d_%Hh%Mm.data', time.localtime(window_start))
+                filename = time.strftime('%Y-%m-%d_%Hh%Mm.data.gz', time.localtime(window_start))
                 logger.info('Writing to file: %s', filename)
-                current_file = open(filename, 'w')
+                current_file = gzip.open(filename, 'wt')
             current_file.write(json.dumps(each_record) + '\n')
             count += 1
         if count > 0:

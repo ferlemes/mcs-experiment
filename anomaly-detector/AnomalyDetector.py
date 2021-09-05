@@ -45,8 +45,7 @@ class AnomalyDetector:
             {"$group": {"_id": "$aggregate_id", "count": {"$sum": 1}}},
             {"$sort": SON([("count", -1), ("_id", -1)])}
         ]
-        aggregates = list(http_records_collection.aggregate(pipeline))
-        for aggregate in aggregates:
+        for aggregate in http_records_collection.aggregate(pipeline, allowDiskUse=True):
             id = aggregate['_id']
             count = aggregate['count']
             if id and count > 10000:
@@ -60,7 +59,7 @@ class AnomalyDetector:
                     training_data.append(line)
                 training_data = np.matrix(training_data)
                 logger.info("Training aggregated path '%s' with %d samples", id, training_data.shape[0])
-                model = svm.OneClassSVM(nu=0.01, kernel="rbf", gamma='scale')
+                model = svm.OneClassSVM(nu=0.001, kernel="rbf", gamma='scale')
                 model.fit(training_data)
                 redis_client.set(self.namespace + '/' + id, pickle.dumps(model))
 
