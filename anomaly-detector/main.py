@@ -127,10 +127,11 @@ def run_trainer():
             client = MongoClient(mongo_url)
             database = client[mongo_database]
             http_records_collection = database[mongo_http_records]
+            anomalies_collection = database[mongo_anomalies]
             redis_client = redis.Redis(host=redis_host, port=int(redis_port), db=0)
             service_ok = True
             while True:
-                anomaly_detector.training_thread(http_records_collection, redis_client)
+                anomaly_detector.training_thread(http_records_collection, anomalies_collection, redis_client)
                 time.sleep(3600)
         except:
             service_ok = False

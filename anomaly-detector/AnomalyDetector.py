@@ -32,16 +32,24 @@ class AnomalyDetector:
         logger.info('Initializing anomaly detector.')
         self.namespace = 'anomaly-detector'
 
-    def training_thread(self, http_records_collection, redis_client):
+    def training_thread(self, http_records_collection, anomalies_collection, redis_client):
         try:
             with redis_lock.Lock(redis_client, name=self.namespace + "/train_mutex", expire=1800, auto_renewal=True):
-                self.do_train(http_records_collection, redis_client)
+                self.do_train(http_records_collection, anomalies_collection, redis_client)
         except redis.exceptions.LockError:
             logger.info("Could not acquire lock for training.")
             time.sleep(15)
 
-    def do_train(self, http_records_collection, redis_client):
+    def do_train(self, http_records_collection, anomalies_collection, redis_client):
         logger.info("train_aggregates():")
+        now = int(time.time())
+        pipeline = [
+            { "$match": { "timestamp": { "$gte": now - 3600, "$lt": now } } },
+            { "$group": {"_id": "$aggregate_id", "count": {"$sum": 1} } }
+        ]
+        last_training_annomalies = {}
+        for aggregated_anomaly in anomalies_collection.aggregate(pipeline, allowDiskUse=True):
+            last_training_annomalies[aggregated_anomaly.get('_id')] = aggregated_anomaly.get('count')
         pipeline = [
             {"$group": {"_id": "$aggregate_id", "count": {"$sum": 1}}},
             {"$sort": SON([("count", -1), ("_id", -1)])}
@@ -49,7 +57,8 @@ class AnomalyDetector:
         for aggregate in http_records_collection.aggregate(pipeline, allowDiskUse=True):
             id = aggregate['_id']
             count = aggregate['count']
-            if id and count > 10000:
+            model = redis_client.get(self.namespace + '/' + id)
+            if id and count > 10000 and (last_training_annomalies.get(id, 0) > 10 or not model):
                 sample_percentage = 10000 / count
                 chunk_range = int(sample_percentage * 65535)
                 chunk_start = random.randint(0, int((1 - sample_percentage) * 65535))
