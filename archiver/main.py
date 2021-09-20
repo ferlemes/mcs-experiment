@@ -19,7 +19,6 @@ import sys
 import logging
 import time
 import threading
-import json
 from pymongo import MongoClient
 from flask import Flask
 from prometheus_flask_exporter import PrometheusMetrics
@@ -52,26 +51,17 @@ else:
     mongo_http_records = 'http_records'
 logger.info('HTTP records collection is: %s', mongo_http_records)
 
-
-if 'ARCHIVE_FOLDER' in os.environ:
-    archive_folder = os.environ['ARCHIVE_FOLDER']
+if 'MONGO_ANOMALIES' in os.environ:
+    mongo_anomalies = os.environ['MONGO_ANOMALIES']
 else:
-    archive_folder = "/tmp"
-if archive_folder[-1:] == '/':
-    archive_folder = archive_folder[:-1]
-logger.info('Archiving records to folder: %s', archive_folder)
+    mongo_anomalies = 'anomalies'
+logger.info('HTTP anomalies collection is: %s', mongo_anomalies)
 
 if 'ARCHIVE_RECORDS_AFTER' in os.environ:
     archive_records_after = int(os.environ['ARCHIVE_RECORDS_AFTER'])
 else:
     archive_records_after = 31536000 # One year
 logger.info('Archiving records from MongoDB after: %d seconds', archive_records_after)
-
-if 'REMOVE_ARCHIVED_RECORDS' in os.environ:
-    remove_archive_records = os.environ['REMOVE_ARCHIVED_RECORDS'].lower() == "true"
-else:
-    remove_archive_records = True
-logger.info('Removing archived records: %s', str(remove_archive_records))
 
 
 service_ok = False
@@ -96,11 +86,10 @@ def run_archiver():
         try:
             client = MongoClient(mongo_url)
             database = client[mongo_database]
-            collection = database[mongo_http_records]
-            collection.find_one()
             service_ok = True
             while True:
-                archive_records(collection)
+                archive_records(mongo_http_records, database)
+                archive_records(mongo_anomalies, database)
                 time.sleep(300)
         except:
             service_ok = False
@@ -109,39 +98,15 @@ def run_archiver():
             raise
 
 
-epoch_start = 0
-epoch_end = 0
-def archive_records(collection):
-    global epoch_start, epoch_end
-    epoch_end = int(time.time()) - archive_records_after
-    epoch_end = epoch_end - (epoch_end % 300) - 1
-    records = list(collection.find({ "timestamp": { "$gte": epoch_start, "$lt": epoch_end } }))
-    if records:
-        grouped_records = {}
-        for record in records:
-            timestamp = record.get('timestamp')
-            filename = time.strftime('%Y-%m-%d_%Hh%Mm.data', time.localtime(timestamp - (timestamp % 300)))
-            if not grouped_records.get(filename):
-                grouped_records[filename] = []
-            grouped_records.get(filename).append(json.dumps(record))
-            counter.inc()
-        dump_groups_to_file(grouped_records)
+def archive_records(collection_name, database):
+    collection = database[collection_name]
+    remove_older_than = int(time.time()) - archive_records_after
+    result = collection.delete_many({ "timestamp": { "$lt": remove_older_than } })
+    if result:
+        counter.inc(result.deleted_count)
+        logger.info("Removed %d records from %s.", result.deleted_count, collection_name)
     else:
-        logger.info("No records to archive.")
-    if remove_archive_records:
-        collection.delete_many({ "timestamp": { "$gte": epoch_start, "$lt": epoch_end } })
-    epoch_start = epoch_end
-
-
-def dump_groups_to_file(grouped_records):
-    for filename, data_array in grouped_records.items():
-        records_count = 0
-        filename = archive_folder + '/' + filename
-        with open(filename, 'a') as file_handler:
-            for each_record in data_array:
-                file_handler.write(each_record + '\n')
-                records_count += 1
-        logger.info("Added %d records to file %s", records_count, filename)
+        logger.info("No records to remove from %s.", collection_name)
 
 
 if __name__ == "__main__":
