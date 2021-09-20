@@ -104,19 +104,21 @@ def report_anomaly_rate(anomalies_to_report):
 
     # Set to zero metrics that were not sent to update
     for key, value in metrics_dict.items():
-        if not anomalies_to_report.get(key):
+        anomaly = value.get('anomaly')
+        if not anomalies_to_report.get(key + '/' + anomaly):
             value.set(0)
 
     # Update anomalies values
-    for id, value in anomalies_to_report.items():
+    for key, value in anomalies_to_report.items():
         path = value.get('path')
+        anomaly = value.get('anomaly')
         rate = value.get('rate')
         percentage = round(rate * 100, 2)
-        logger.info('Anomaly detected for aggregate_id=%s (aggregated_http_path %s) with %.2f%%', id, path, percentage)
-        metric = metrics_dict.get(id)
+        logger.info('Anomaly detected for aggregate_id=%s (aggregated_http_path %s) with %.2f%%', key, path, percentage)
+        metric = metrics_dict.get(key + '/' + anomaly)
         if not metric:
-            metric = anomaly_gauge.labels(aggregate_id=id, aggregated_http_path=path)
-            metrics_dict[id] = metric
+            metric = anomaly_gauge.labels(aggregate_id=key, aggregated_http_path=path, anomaly=anomaly)
+            metrics_dict[key] = metric
         metric.set(percentage)
 
 
@@ -138,21 +140,24 @@ def run_reporter():
                     now = time.time()
                     pipeline = [
                         { "$match": { "timestamp": { "$gte": now - window_size, "$lt": now } } },
-                        { "$group": {"_id": "$aggregate_id", "count": {"$sum": 1} } },
+                        { "$group": {"_id": { "aggregate_id": "$aggregate_id", "anomaly": "$anomaly" }, "count": {"$sum": 1} } },
                         { "$sort": SON([ ("count", -1), ("_id", -1) ]) }
                     ]
                     anomalies_aggregates = list(anomalies_collection.aggregate(pipeline))
+                    logger.info("anomalues_aggregates=%s", str(anomalies_aggregates))
                     http_requests_aggregates = list(http_records_collection.aggregate(pipeline))
                     http_requests_aggregates_dict = {}
                     for http_requests_aggregate in http_requests_aggregates:
-                        http_requests_aggregates_dict[http_requests_aggregate.get("_id")] = http_requests_aggregate.get("count")
+                        http_requests_aggregates_dict[http_requests_aggregate.get("_id").get("aggregate_id")] = http_requests_aggregate.get("count")
                     for anomalies_aggregate in anomalies_aggregates:
-                        aggregate_id = anomalies_aggregate.get("_id")
+                        aggregate_id = anomalies_aggregate.get("_id").get("aggregate_id")
+                        anomaly = anomalies_aggregate.get("anomaly")
                         count = anomalies_aggregate.get("count")
                         if count > 5 and not anomalies_to_report.get(aggregate_id):
                             rate = count / http_requests_aggregates_dict.get(aggregate_id)
                             anomalies_to_report[aggregate_id] = {
                                 'path': get_aggregated_http_path(aggregate_id, anomalies_collection),
+                                'anomaly': anomaly,
                                 'rate': rate
                             }
                 logger.info('Done evaluating anomalies.')

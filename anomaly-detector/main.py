@@ -21,6 +21,7 @@ import time
 import threading
 import pika
 import json
+import uuid
 from pymongo import MongoClient
 from AnomalyDetector import AnomalyDetector
 import redis
@@ -143,6 +144,8 @@ def evaluate_message(anomalies_collection, redis_client, data):
     global counter, records_processed
     if anomaly_detector.is_anomalous(redis_client, data):
         anomaly_counter.inc()
+        data['_id'] = str(uuid.uuid4())
+        data['anomaly'] = 'anomaly-detector'
         anomalies_collection.insert_one(data)
     counter.inc()
     records_processed += 1
