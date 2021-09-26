@@ -67,7 +67,7 @@ metrics = PrometheusMetrics(flask_app)
 aggregated_http_path_dict = {}
 anomaly_gauge = Gauge('kubeowl_anomalies',
                       'Percentage of anomalies for a given endpoint.',
-                      ['aggregate_id', 'aggregated_http_path'])
+                      ['aggregate_id', 'aggregated_http_path', 'anomaly'])
 metrics_dict = {}
 
 
@@ -102,23 +102,27 @@ def get_aggregated_http_path(id, collection):
 
 def report_anomaly_rate(anomalies_to_report):
 
+    current_keys = []
+    for key, value in anomalies_to_report.items():
+        anomaly = value.get('anomaly', 'unknown')
+        current_keys.append(key + '/' + anomaly)
     # Set to zero metrics that were not sent to update
     for key, value in metrics_dict.items():
-        anomaly = value.get('anomaly')
-        if not anomalies_to_report.get(key + '/' + anomaly):
+        if not key in current_keys:
             value.set(0)
 
     # Update anomalies values
     for key, value in anomalies_to_report.items():
+        anomaly = value.get('anomaly', 'unknown')
+        dict_key = key + '/' + anomaly
         path = value.get('path')
-        anomaly = value.get('anomaly')
         rate = value.get('rate')
         percentage = round(rate * 100, 2)
-        logger.info('Anomaly detected for aggregate_id=%s (aggregated_http_path %s) with %.2f%%', key, path, percentage)
-        metric = metrics_dict.get(key + '/' + anomaly)
+        logger.info('Anomaly detected for aggregate_id=%s (type %s, aggregated_http_path %s) with %.2f%%', key, anomaly, path, percentage)
+        metric = metrics_dict.get(dict_key)
         if not metric:
             metric = anomaly_gauge.labels(aggregate_id=key, aggregated_http_path=path, anomaly=anomaly)
-            metrics_dict[key] = metric
+            metrics_dict[dict_key] = metric
         metric.set(percentage)
 
 
@@ -144,14 +148,13 @@ def run_reporter():
                         { "$sort": SON([ ("count", -1), ("_id", -1) ]) }
                     ]
                     anomalies_aggregates = list(anomalies_collection.aggregate(pipeline))
-                    logger.info("anomalues_aggregates=%s", str(anomalies_aggregates))
                     http_requests_aggregates = list(http_records_collection.aggregate(pipeline))
                     http_requests_aggregates_dict = {}
                     for http_requests_aggregate in http_requests_aggregates:
                         http_requests_aggregates_dict[http_requests_aggregate.get("_id").get("aggregate_id")] = http_requests_aggregate.get("count")
                     for anomalies_aggregate in anomalies_aggregates:
                         aggregate_id = anomalies_aggregate.get("_id").get("aggregate_id")
-                        anomaly = anomalies_aggregate.get("anomaly")
+                        anomaly = anomalies_aggregate.get("_id").get("anomaly")
                         count = anomalies_aggregate.get("count")
                         if count > 5 and not anomalies_to_report.get(aggregate_id):
                             rate = count / http_requests_aggregates_dict.get(aggregate_id)

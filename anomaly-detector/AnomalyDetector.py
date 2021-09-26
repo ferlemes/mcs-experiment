@@ -32,15 +32,15 @@ class AnomalyDetector:
         logger.info('Initializing anomaly detector.')
         self.namespace = 'anomaly-detector'
 
-    def training_thread(self, http_records_collection, anomalies_collection, redis_client):
+    def training_thread(self, http_records_collection, anomalies_collection, samples_collection, redis_client):
         try:
             with redis_lock.Lock(redis_client, name=self.namespace + "/train_mutex", expire=1800, auto_renewal=True):
-                self.do_train(http_records_collection, anomalies_collection, redis_client)
+                self.do_train(http_records_collection, anomalies_collection, samples_collection, redis_client)
         except redis.exceptions.LockError:
             logger.info("Could not acquire lock for training.")
             time.sleep(15)
 
-    def do_train(self, http_records_collection, anomalies_collection, redis_client):
+    def do_train(self, http_records_collection, anomalies_collection, samples_collection, redis_client):
         logger.info("train_aggregates():")
         now = int(time.time())
         pipeline = [
@@ -58,15 +58,17 @@ class AnomalyDetector:
             id = aggregate['_id']
             count = aggregate['count']
             model = redis_client.get(self.namespace + '/' + id)
-            if id and count > 10000 and (last_training_annomalies.get(id, 0) > 10 or not model):
-                sample_percentage = 10000 / count
+            if id and count > 1000 and (last_training_annomalies.get(id, 0) > 10 or not model):
+                sample_percentage = 1000 / count
                 chunk_range = int(sample_percentage * 65535)
                 chunk_start = random.randint(0, int((1 - sample_percentage) * 65535))
                 chunk_end = chunk_start + chunk_range
+                samples_collection.delete_many({ "aggregate_id": id })
                 training_data = []
                 for http_record in http_records_collection.find({ "aggregate_id": id, "random": { "$gte": chunk_start, "$lte": chunk_end } }):
                     line = self.prepare_data(http_record)
                     training_data.append(line)
+                    samples_collection.insert_one(http_record)
                 training_data = np.matrix(training_data)
                 logger.info("Training aggregated path '%s' with %d samples", id, training_data.shape[0])
                 model = svm.OneClassSVM(nu=0.001, kernel="rbf", gamma='scale')

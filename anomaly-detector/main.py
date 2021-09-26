@@ -72,6 +72,12 @@ else:
     mongo_anomalies = "anomalies"
 logger.info('Anomalies collection is: %s', mongo_anomalies)
 
+if 'MONGO_SAMPLES' in os.environ:
+    mongo_samples = os.environ['MONGO_SAMPLES']
+else:
+    mongo_samples = "samples"
+logger.info('Samples collection is: %s', mongo_samples)
+
 if 'RABBITMQ_HOST' in os.environ:
     rabbitmq_host = os.environ['RABBITMQ_HOST']
     logger.info('Using RabbitMQ host: %s', rabbitmq_host)
@@ -116,9 +122,15 @@ anomaly_detector = AnomalyDetector()
 # Create indexes
 client = MongoClient(mongo_url)
 database = client[mongo_database]
-collection = database[mongo_http_records]
-collection.create_index([("aggregate_id", 1)])
-collection.create_index([("aggregate_id", 1), ("random", 1)])
+http_recors_collection = database[mongo_http_records]
+http_recors_collection.create_index([("aggregate_id", 1)])
+http_recors_collection.create_index([("aggregate_id", 1), ("random", 1)])
+http_recors_collection.create_index([("aggregate_id", 1), ("timestamp", 1)])
+anomalies_collection = database[mongo_anomalies]
+anomalies_collection.create_index([("aggregate_id", 1)])
+anomalies_collection.create_index([("aggregate_id", 1), ("timestamp", 1)])
+samples_collection = database[mongo_samples]
+samples_collection.create_index([("aggregate_id", 1)])
 
 
 def run_trainer():
@@ -129,10 +141,11 @@ def run_trainer():
             database = client[mongo_database]
             http_records_collection = database[mongo_http_records]
             anomalies_collection = database[mongo_anomalies]
+            samples_collection = database[mongo_samples]
             redis_client = redis.Redis(host=redis_host, port=int(redis_port), db=0)
             service_ok = True
             while True:
-                anomaly_detector.training_thread(http_records_collection, anomalies_collection, redis_client)
+                anomaly_detector.training_thread(http_records_collection, anomalies_collection, samples_collection, redis_client)
                 time.sleep(3600)
         except:
             service_ok = False

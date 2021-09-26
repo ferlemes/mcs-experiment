@@ -134,8 +134,6 @@ services:
       retries: 3
     environment:
       - MONGO_URL=mongodb://mongodb:27017/
-      - ARCHIVE_RECORDS_AFTER=300
-      - REMOVE_ARCHIVED_RECORDS=false
-      - ARCHIVE_FOLDER=/data/
+      - ARCHIVE_RECORDS_AFTER=2592000
     links:
       - mongodb
