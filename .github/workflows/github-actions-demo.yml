@@ -22,7 +22,7 @@ jobs:
     steps:
       - name: Hello world action step
         id: hello
-        uses: actions/test-action@v1
+        uses: pipeline-automation/test-action@v1
         with:
           who-to-greet: 'Mona the Octocat'
       - name: Get the output time
