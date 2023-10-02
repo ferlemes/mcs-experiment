@@ -89,6 +89,24 @@ services:
     deploy:
       mode: replicated
       replicas: 1
+  abnormal-duration-detector:
+    image: abnormal-duration-detector
+    build:
+      context: abnormal-duration-detector
+      dockerfile: Dockerfile
+    healthcheck:
+      test: curl -f http://localhost/healthcheck || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    environment:
+      - MONGO_URL=mongodb://mongodb:27017/
+      - RABBITMQ_HOST=rabbitmq
+      - REDIS_HOST=redis
+    links:
+      - mongodb
+      - rabbitmq
+      - redis
   anomaly-reporter:
     container_name: anomaly-reporter
     image: anomaly-reporter

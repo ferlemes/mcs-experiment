@@ -14,23 +14,37 @@
 # limitations under the License.
 #
 
+import os
 import logging
 import redis
 import redis_lock
 import time
 from bson.son import SON
 import numpy as np
-from sklearn import svm
+from sklearn.linear_model import LogisticRegression
 import pickle
 import random
 
 logger = logging.getLogger()
 
-class AnomalyDetector:
+if 'ABNORMAL_DURATION_MIN_SECS' in os.environ:
+    abnormal_duration_min_msecs = float(os.environ['ABNORMAL_DURATION_MIN_SECS'])
+else:
+    abnormal_duration_min_msecs = 5
+logger.info('Minimal abnormal duration difference in milliseconds to consider as anomaly: %s milliseconds', abnormal_duration_min_msecs)
+
+if 'ABNORMAL_DURATION_MIN_PERCENTAGE' in os.environ:
+    abnormal_duration_min_percentage = float(os.environ['ABNORMAL_DURATION_MIN_PERCENTAGE'])
+else:
+    abnormal_duration_min_percentage = 5.0
+logger.info('Minimal abnormal duration difference in percentage to consider as anomaly: %s %', abnormal_duration_min_percentage)
+abnormal_duration_min_percentage %= 100
+
+class AbnormalDurationDetector:
 
     def __init__(self):
         logger.info('Initializing anomaly detector.')
-        self.namespace = 'anomaly-detector'
+        self.namespace = 'abnormal-duration-detector'
 
     def training_thread(self, http_records_collection, anomalies_collection, samples_collection, redis_client):
         try:
@@ -69,10 +83,10 @@ class AnomalyDetector:
                     line = self.prepare_data(http_record)
                     training_data.append(line)
                     samples_collection.insert_one(http_record)
-                training_data = np.matrix(training_data)
+                training_data = np.array(training_data)
                 logger.info("Training aggregated path '%s' with %d samples", id, training_data.shape[0])
-                model = svm.OneClassSVM(nu=0.001, kernel="rbf", gamma='scale')
-                model.fit(training_data)
+                model = LogisticRegression()
+                model.fit(training_data[:,0:3],training_data[:,3])
                 redis_client.set(self.namespace + '/' + id, pickle.dumps(model))
 
     def is_anomalous(self, redis_client, data):
@@ -81,9 +95,13 @@ class AnomalyDetector:
             serialized_model = redis_client.get(self.namespace + '/' + aggregate_id)
             if serialized_model:
                 model = pickle.loads(serialized_model)
-                data_to_evaluate = np.matrix(self.prepare_data(data))
-                result = model.predict(data_to_evaluate)
-                if result[0] == -1:
+                data_to_evaluate = np.array([self.prepare_data(data)])
+                expected_result = data_to_evaluate[:,3][0]
+                result = model.predict(data_to_evaluate[:,0:3])[0]
+                difference = abs(expected_result - result)
+                logger.info("Request took %d ms and the predicted as %d", expected_result, result)
+                if  difference > abnormal_duration_min_msecs and (difference / expected_result) > abnormal_duration_min_percentage:
+                    logger.info("Request was considered anomalous!", expected_result, result)
                     return True
         return False
 
@@ -91,9 +109,7 @@ class AnomalyDetector:
         kbytes_sent = float(data.get("bytes_sent", 0))         / 1024
         kbytes_received = float(data.get("bytes_received", 0)) / 1024
         http_status = float(data.get("http_status", 0))        / 100
-        duration = float(data.get("duration", 0))
-        if duration % 1 == 0: # Adding some noise as microseconds if not present
-            duration += random.randint(-499, 499) / 1000
+        duration = int(data.get("duration", 0))
         processed_data = [
             kbytes_sent,
             kbytes_received,

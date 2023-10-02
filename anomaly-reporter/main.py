@@ -104,7 +104,7 @@ def report_anomaly_rate(anomalies_to_report):
 
     current_keys = []
     for key, value in anomalies_to_report.items():
-        anomaly = value.get('anomaly', 'unknown')
+        anomaly = value.get('anomaly')
         current_keys.append(key + '/' + anomaly)
     # Set to zero metrics that were not sent to update
     for key, value in metrics_dict.items():
@@ -113,7 +113,7 @@ def report_anomaly_rate(anomalies_to_report):
 
     # Update anomalies values
     for key, value in anomalies_to_report.items():
-        anomaly = value.get('anomaly', 'unknown')
+        anomaly = value.get('anomaly')
         dict_key = key + '/' + anomaly
         path = value.get('path')
         rate = value.get('rate')
@@ -154,7 +154,7 @@ def run_reporter():
                         http_requests_aggregates_dict[http_requests_aggregate.get("_id").get("aggregate_id")] = http_requests_aggregate.get("count")
                     for anomalies_aggregate in anomalies_aggregates:
                         aggregate_id = anomalies_aggregate.get("_id").get("aggregate_id")
-                        anomaly = anomalies_aggregate.get("_id").get("anomaly")
+                        anomaly = anomalies_aggregate.get("_id").get("anomaly", "unknown")
                         count = anomalies_aggregate.get("count")
                         if count > 5 and not anomalies_to_report.get(aggregate_id):
                             rate = count / http_requests_aggregates_dict.get(aggregate_id)

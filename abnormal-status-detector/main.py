@@ -23,7 +23,7 @@ import pika
 import json
 import uuid
 from pymongo import MongoClient
-from AnomalyDetector import AnomalyDetector
+from AbnormalStatusDetector import AbnormalStatusDetector
 import redis
 from flask import Flask
 from prometheus_flask_exporter import PrometheusMetrics
@@ -75,7 +75,7 @@ logger.info('Anomalies collection is: %s', mongo_anomalies)
 if 'MONGO_SAMPLES' in os.environ:
     mongo_samples = os.environ['MONGO_SAMPLES']
 else:
-    mongo_samples = "samples"
+    mongo_samples = "abnormal-duration-samples"
 logger.info('Samples collection is: %s', mongo_samples)
 
 if 'RABBITMQ_HOST' in os.environ:
@@ -94,7 +94,7 @@ logger.info('RabbitMQ exchange: %s', rabbitmq_exchange)
 if 'RABBITMQ_QUEUE' in os.environ:
     rabbitmq_queue = os.environ['RABBITMQ_QUEUE']
 else:
-    rabbitmq_queue = 'anomaly_detector'
+    rabbitmq_queue = 'abnormal_duration_detector'
 logger.info('RabbitMQ queue: %s', rabbitmq_queue)
 
 
@@ -116,7 +116,7 @@ def healthcheck():
         return 'NOK', 400
 
 
-anomaly_detector = AnomalyDetector()
+detector = AbnormalStatusDetector()
 
 
 # Create indexes
@@ -137,6 +137,7 @@ def run_trainer():
     global service_ok
     while True:
         try:
+            global client, database, anomalies_collection, samples_collection
             client = MongoClient(mongo_url)
             database = client[mongo_database]
             http_records_collection = database[mongo_http_records]
@@ -145,7 +146,7 @@ def run_trainer():
             redis_client = redis.Redis(host=redis_host, port=int(redis_port), db=0)
             service_ok = True
             while True:
-                anomaly_detector.training_thread(http_records_collection, anomalies_collection, samples_collection, redis_client)
+                detector.training_thread(http_records_collection, anomalies_collection, samples_collection, redis_client)
                 time.sleep(3600)
         except:
             service_ok = False
@@ -155,10 +156,10 @@ def run_trainer():
 
 def evaluate_message(anomalies_collection, redis_client, data):
     global counter, records_processed
-    if anomaly_detector.is_anomalous(redis_client, data):
+    if detector.is_anomalous(redis_client, data):
         anomaly_counter.inc()
         data['_id'] = str(uuid.uuid4())
-        data['anomaly'] = 'anomaly-detector'
+        data['anomaly'] = 'abnormal-duration-detector'
         anomalies_collection.insert_one(data)
     counter.inc()
     records_processed += 1
